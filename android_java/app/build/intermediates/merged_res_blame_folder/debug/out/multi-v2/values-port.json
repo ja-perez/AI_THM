@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "org.tensorflow.lite.examples.imageclassification.app-mergeDebugResources-46:/values-port/values-port.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\Jpere\\.gradle\\caches\\transforms-3\\71c0267d00272134c84049a83624a7f5\\transformed\\appcompat-1.4.2\\res\\values-port\\values-port.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    }
+                }
+            ]
+        }
+    ]
+}

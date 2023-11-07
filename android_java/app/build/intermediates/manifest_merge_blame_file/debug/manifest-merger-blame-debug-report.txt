@@ -1,0 +1,141 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    xmlns:dist="http://schemas.android.com/apk/distribution"
+4    package="org.tensorflow.lite.examples.imageclassification"
+5    android:versionCode="1"
+6    android:versionName="1.0" >
+7
+8    <uses-sdk
+9        android:minSdkVersion="23"
+9-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml
+10        android:targetSdkVersion="32" />
+10-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml
+11
+12    <!-- Enable instant app support -->
+13    <dist:module dist:instant="true" />
+13-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:8:5-40
+13-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:8:18-37
+14
+15    <!-- Declare features -->
+16    <uses-feature android:name="android.hardware.camera" />
+16-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:11:5-60
+16-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:11:19-57
+17
+18    <!-- Declare permissions -->
+19    <uses-permission android:name="android.permission.CAMERA" />
+19-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:14:5-65
+19-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:14:22-62
+20    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+21    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+22    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+23
+24    <application
+24-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:16:5-46:19
+25        android:allowBackup="true"
+25-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:17:9-35
+26        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+26-->[androidx.core:core:1.8.0] C:\Users\Jpere\.gradle\caches\transforms-3\06c00791901d238dca6f5a608a2f53ba\transformed\core-1.8.0\AndroidManifest.xml:24:18-86
+27        android:debuggable="true"
+28        android:extractNativeLibs="false"
+29        android:icon="@mipmap/ic_launcher"
+29-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:18:9-43
+30        android:label="@string/app_name"
+30-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:19:9-41
+31        android:roundIcon="@mipmap/ic_launcher_round"
+31-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:20:9-54
+32        android:supportsRtl="true"
+32-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:21:9-35
+33        android:taskAffinity=""
+33-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:22:9-32
+34        android:testOnly="true" >
+35        <activity
+35-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:24:9-45:20
+36            android:name="org.tensorflow.lite.examples.imageclassification.MainActivity"
+36-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:25:13-41
+37            android:clearTaskOnLaunch="true"
+37-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:26:13-45
+38            android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize"
+38-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:27:13-91
+39            android:exported="true"
+39-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:28:13-36
+40            android:resizeableActivity="true"
+40-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:29:13-46
+41            android:rotationAnimation="seamless"
+41-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:30:13-49
+42            android:theme="@style/AppTheme" >
+42-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:31:13-44
+43
+44            <!-- Main app intent filter -->
+45            <intent-filter>
+45-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:35:13-39:29
+46                <action android:name="android.intent.action.MAIN" />
+46-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:36:17-69
+46-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:36:25-66
+47
+48                <category android:name="android.intent.category.LAUNCHER" />
+48-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:38:17-77
+48-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:38:27-74
+49            </intent-filter>
+50
+51            <!-- Declare notch support -->
+52            <meta-data
+52-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:42:13-44:40
+53                android:name="android.notch_support"
+53-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:43:17-53
+54                android:value="true" />
+54-->C:\Users\Jpere\projects\examples\lite\examples\image_classification\android_java\app\src\main\AndroidManifest.xml:44:17-37
+55        </activity>
+56
+57        <uses-library
+57-->[androidx.window:window:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\0862fe7cc7f33cbe227c056bba859c5c\transformed\window-1.0.0\AndroidManifest.xml:25:9-27:40
+58            android:name="androidx.window.extensions"
+58-->[androidx.window:window:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\0862fe7cc7f33cbe227c056bba859c5c\transformed\window-1.0.0\AndroidManifest.xml:26:13-54
+59            android:required="false" />
+59-->[androidx.window:window:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\0862fe7cc7f33cbe227c056bba859c5c\transformed\window-1.0.0\AndroidManifest.xml:27:13-37
+60        <uses-library
+60-->[androidx.window:window:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\0862fe7cc7f33cbe227c056bba859c5c\transformed\window-1.0.0\AndroidManifest.xml:28:9-30:40
+61            android:name="androidx.window.sidecar"
+61-->[androidx.window:window:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\0862fe7cc7f33cbe227c056bba859c5c\transformed\window-1.0.0\AndroidManifest.xml:29:13-51
+62            android:required="false" />
+62-->[androidx.window:window:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\0862fe7cc7f33cbe227c056bba859c5c\transformed\window-1.0.0\AndroidManifest.xml:30:13-37
+63
+64        <service
+64-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:24:9-33:19
+65            android:name="androidx.camera.core.impl.MetadataHolderService"
+65-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:25:13-75
+66            android:enabled="false"
+66-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:26:13-36
+67            android:exported="false" >
+67-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:27:13-37
+68            <meta-data
+68-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:30:13-32:89
+69                android:name="androidx.camera.core.impl.MetadataHolderService.DEFAULT_CONFIG_PROVIDER"
+69-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:31:17-103
+70                android:value="androidx.camera.camera2.Camera2Config$DefaultProvider" />
+70-->[androidx.camera:camera-camera2:1.2.0-alpha04] C:\Users\Jpere\.gradle\caches\transforms-3\61438bc7b5c749e2ac505d0384091d4e\transformed\camera-camera2-1.2.0-alpha04\AndroidManifest.xml:32:17-86
+71        </service>
+72
+73        <provider
+73-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:26:9-34:20
+74            android:name="androidx.startup.InitializationProvider"
+74-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:27:13-67
+75            android:authorities="org.tensorflow.lite.examples.imageclassification.androidx-startup"
+75-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:28:13-68
+76            android:exported="false" >
+76-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:29:13-37
+77            <meta-data
+77-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:31:13-33:52
+78                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+78-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:32:17-75
+79                android:value="androidx.startup" />
+79-->[androidx.emoji2:emoji2:1.0.0] C:\Users\Jpere\.gradle\caches\transforms-3\5ef8defb095dfac399f8bc5a8476cd68\transformed\emoji2-1.0.0\AndroidManifest.xml:33:17-49
+80            <meta-data
+80-->[androidx.lifecycle:lifecycle-process:2.4.0] C:\Users\Jpere\.gradle\caches\transforms-3\dcc62a91cf5a279b5b8c7582682756dd\transformed\lifecycle-process-2.4.0\AndroidManifest.xml:31:13-33:52
+81                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+81-->[androidx.lifecycle:lifecycle-process:2.4.0] C:\Users\Jpere\.gradle\caches\transforms-3\dcc62a91cf5a279b5b8c7582682756dd\transformed\lifecycle-process-2.4.0\AndroidManifest.xml:32:17-78
+82                android:value="androidx.startup" />
+82-->[androidx.lifecycle:lifecycle-process:2.4.0] C:\Users\Jpere\.gradle\caches\transforms-3\dcc62a91cf5a279b5b8c7582682756dd\transformed\lifecycle-process-2.4.0\AndroidManifest.xml:33:17-49
+83        </provider>
+84    </application>
+85
+86</manifest>
