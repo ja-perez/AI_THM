@@ -32,9 +32,30 @@ import java.util.TimerTask;
 
 import java.io.File;
 
+/*
+TODO: General Functionality
+    - Start/Stop classification
+    - Add model for classification
+
+TODO: Data collection
+    - get[CPU/GPU]Frequency
+    - get[CPU/GPU/NPU]Temperature
+    - getThroughput
+
+TODO: Data processing
+    - processThermalData
+    - processFrequencyData
+    - processThroughputData
+
+TODO: Experiment specification
+    - runTestConfiguration
+    - setTaskToDelegate
+    - setTaskPeriod
+ */
+
 /** Entrypoint for app */
 public class MainActivity extends AppCompatActivity {
-    PowerManager.OnThermalStatusChangedListener thermalStatusListener;
+    PowerManager.OnThermalStatusChangedListener thermalStatusListener = null;
     PowerManager pm;
 
     SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
@@ -66,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
 
     protected void onPause() {
         super.onPause();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && thermalStatusListener != null) {
             pm.removeThermalStatusListener(thermalStatusListener);
         }
     }

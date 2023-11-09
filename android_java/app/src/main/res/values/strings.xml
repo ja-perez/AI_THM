@@ -30,16 +30,22 @@
     <string name="alt_bottom_sheet_thread_button_minus">Decrease the number of threads used</string>
     <string name="alt_bottom_sheet_thread_button_plus">Increase the number of threads used</string>
 
-    <string name="label_interence_time">Inference Time</string>
+    <string name="label_inference_time">Inference Time</string>
     <string name="label_fps">Frames per Second</string>
     <string name="label_confidence_threshold">Threshold</string>
     <string name="label_max_results">Max Results</string>
+    <string name="label_task_period">Task Period (s)</string>
     <string name="label_threads">Number of Threads</string>
     <string name="label_delegate">Delegate</string>
     <string name="label_models">ML Model</string>
+    <string name="label_model_state">Model State</string>
+    <string name="label_active">Active</string>
+    <string name="label_inactive">Inactive</string>
+    <string name="toggle_button">Toggle Model State</string>
     <string name="default_threshold">0.50</string>
     <string name="default_inference_time">0ms</string>
     <string name="default_max_results">3</string>
+    <string name="default_task_period">0.5</string>
 
     <string-array name="delegate_spinner_titles">
         <item>CPU</item>
@@ -53,4 +59,5 @@
         <item>EfficientNet Lite1</item>
         <item>EfficientNet Lite2</item>
     </string-array>
+
 </resources>

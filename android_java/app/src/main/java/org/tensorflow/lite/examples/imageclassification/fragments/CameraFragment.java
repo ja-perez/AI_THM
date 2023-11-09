@@ -55,6 +55,7 @@ public class CameraFragment extends Fragment
 
     private FragmentCameraBinding fragmentCameraBinding;
     private ImageClassifierHelper imageClassifierHelper;
+    private boolean ImageClassifierStatus = true;
     private Bitmap bitmapBuffer;
     private ClassificationResultAdapter classificationResultsAdapter;
     private ImageAnalysis imageAnalyzer;
@@ -179,6 +180,26 @@ public class CameraFragment extends Fragment
                     }
                 });
 
+        // When clicked, reduce the task period of a models classification
+        fragmentCameraBinding.bottomSheetLayout.taskPeriodMinus
+                .setOnClickListener(view -> {
+                    int taskPeriod = imageClassifierHelper.getTaskPeriod();
+                    if (taskPeriod > 1) {
+                        imageClassifierHelper.setTaskPeriod(taskPeriod - 1);
+                        updateControlsUi();
+                    }
+                });
+
+        // When clicked, increase the task period of a models classification
+        fragmentCameraBinding.bottomSheetLayout.taskPeriodPlus
+                .setOnClickListener(view -> {
+                    int taskPeriod = imageClassifierHelper.getTaskPeriod();
+                    if (taskPeriod < 3) {
+                        imageClassifierHelper.setTaskPeriod(taskPeriod + 1);
+                        updateControlsUi();
+                    }
+                });
+
         // When clicked, decrease the number of threads used for classification
         fragmentCameraBinding.bottomSheetLayout.threadsMinus
                 .setOnClickListener(view -> {
@@ -240,6 +261,14 @@ public class CameraFragment extends Fragment
                         // no-op
                     }
                 });
+
+        // When clicked, toggle the status of classification from active to
+        // in-active and vice-versa.
+        fragmentCameraBinding.bottomSheetLayout.stateToggleButton
+                .setOnClickListener(view -> {
+                    ImageClassifierStatus = !ImageClassifierStatus;
+                    updateControlsUi();
+                });
     }
 
     // Update the values displayed in the bottom sheet. Reset classifier.
@@ -251,12 +280,20 @@ public class CameraFragment extends Fragment
                         imageClassifierHelper.getThreshold()));
         fragmentCameraBinding.bottomSheetLayout.threadsValue
                 .setText(String.valueOf(imageClassifierHelper.getNumThreads()));
+        if (ImageClassifierStatus) {
+            fragmentCameraBinding.bottomSheetLayout.modelState
+                    .setText(getString(R.string.label_active));
+        } else {
+            fragmentCameraBinding.bottomSheetLayout.modelState
+                    .setText(getString(R.string.label_inactive));
+        }
         // Needs to be cleared instead of reinitialized because the GPU
         // delegate needs to be initialized on the thread using it when
         // applicable
         synchronized (task) {
             imageClassifierHelper.clearImageClassifier();
         }
+
     }
 
     // Initialize CameraX, and prepare to bind the camera use cases
@@ -303,13 +340,15 @@ public class CameraFragment extends Fragment
 
         // The analyzer can then be assigned to the instance
         imageAnalyzer.setAnalyzer(cameraExecutor, image -> {
-            if (bitmapBuffer == null) {
-                bitmapBuffer = Bitmap.createBitmap(
-                        image.getWidth(),
-                        image.getHeight(),
-                        Bitmap.Config.ARGB_8888);
+            if (ImageClassifierStatus) {
+                if (bitmapBuffer == null) {
+                    bitmapBuffer = Bitmap.createBitmap(
+                            image.getWidth(),
+                            image.getHeight(),
+                            Bitmap.Config.ARGB_8888);
+                }
+                classifyImage(image);
             }
-            classifyImage(image);
         });
 
         // Must unbind the use-cases before rebinding them
@@ -335,15 +374,19 @@ public class CameraFragment extends Fragment
     }
 
     private void classifyImage(@NonNull ImageProxy image) {
-        // Copy out RGB bits to the shared bitmap buffer
-        bitmapBuffer.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
+        if (ImageClassifierStatus) {
+            // Copy out RGB bits to the shared bitmap buffer
+            bitmapBuffer.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
 
-        int imageRotation = image.getImageInfo().getRotationDegrees();
-        image.close();
-        synchronized (task) {
-            // Pass Bitmap and rotation to the image classifier helper for
-            // processing and classification
-            imageClassifierHelper.classify(bitmapBuffer, imageRotation);
+            int imageRotation = image.getImageInfo().getRotationDegrees();
+            image.close();
+            synchronized (task) {
+                // Pass Bitmap and rotation to the image classifier helper for
+                // processing and classification
+                imageClassifierHelper.classify(bitmapBuffer, imageRotation);
+            }
+        } else {
+            imageClassifierHelper.clearImageClassifier();
         }
     }
 

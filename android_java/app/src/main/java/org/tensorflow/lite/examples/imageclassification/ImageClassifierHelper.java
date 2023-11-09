@@ -44,6 +44,8 @@ public class ImageClassifierHelper {
     private float threshold;
     private int numThreads;
     private int maxResults;
+
+    private int taskPeriod;
     private int currentDelegate;
     private int currentModel;
     private final Context context;
@@ -106,6 +108,10 @@ public class ImageClassifierHelper {
     public void setMaxResults(int maxResults) {
         this.maxResults = maxResults;
     }
+
+    public int getTaskPeriod() { return taskPeriod;}
+
+    public void setTaskPeriod(int taskPeriod) {this.taskPeriod = taskPeriod;}
 
     public void setCurrentDelegate(int currentDelegate) {
         this.currentDelegate = currentDelegate;
@@ -196,6 +202,12 @@ public class ImageClassifierHelper {
         List<Classifications> result = imageClassifier.classify(tensorImage);
 
         inferenceTime = SystemClock.uptimeMillis() - inferenceTime;
+
+        long timeLeftInPeriod = taskPeriod - inferenceTime;
+
+        if (timeLeftInPeriod > 0) {
+        }
+
         imageClassifierListener.onResults(result, inferenceTime);
     }
 
