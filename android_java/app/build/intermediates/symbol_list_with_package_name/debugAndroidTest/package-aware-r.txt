@@ -1,1 +1,0 @@
-org.tensorflow.lite.examples.imageclassification.test
