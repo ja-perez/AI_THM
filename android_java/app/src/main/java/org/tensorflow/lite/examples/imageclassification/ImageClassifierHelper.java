@@ -41,13 +41,15 @@ public class ImageClassifierHelper {
     private static final int MODEL_EFFICIENTNETV1 = 2;
     private static final int MODEL_EFFICIENTNETV2 = 3;
 
+    long inferenceTime = 0;
+    private int executionCount = 0;
+    private long totalExecutionTime = 0;
     private float threshold;
     private int numThreads;
     private int maxResults;
-
-    private int taskPeriod;
     private int currentDelegate;
     private int currentModel;
+    private long currentTaskPeriod;
     private final Context context;
     private final ClassifierListener imageClassifierListener;
     private ImageClassifier imageClassifier;
@@ -58,6 +60,7 @@ public class ImageClassifierHelper {
                                  int maxResults,
                                  int currentDelegate,
                                  int currentModel,
+                                 long currentTaskPeriod,
                                  Context context,
                                  ClassifierListener imageClassifierListener) {
         this.threshold = threshold;
@@ -65,6 +68,7 @@ public class ImageClassifierHelper {
         this.maxResults = maxResults;
         this.currentDelegate = currentDelegate;
         this.currentModel = currentModel;
+        this.currentTaskPeriod = currentTaskPeriod;
         this.context = context;
         this.imageClassifierListener = imageClassifierListener;
         setupImageClassifier();
@@ -80,6 +84,7 @@ public class ImageClassifierHelper {
                 3,
                 0,
                 0,
+                500,
                 context,
                 listener
         );
@@ -109,17 +114,19 @@ public class ImageClassifierHelper {
         this.maxResults = maxResults;
     }
 
-    public int getTaskPeriod() { return taskPeriod;}
+    public long getTaskPeriod() { return currentTaskPeriod;}
 
-    public void setTaskPeriod(int taskPeriod) {this.taskPeriod = taskPeriod;}
+    public void setTaskPeriod(long taskPeriod) {this.currentTaskPeriod = taskPeriod;}
 
     public void setCurrentDelegate(int currentDelegate) {
         this.currentDelegate = currentDelegate;
     }
 
-    public void setCurrentModel(int currentModel) {
-        this.currentModel = currentModel;
-    }
+    public String getCurrentDelegate() {return getDelegateName();}
+
+    public void setCurrentModel(int currentModel) {this.currentModel = currentModel;}
+
+    public String getCurrentModel() {return getCurrentModel();}
 
     private void setupImageClassifier() {
         ImageClassifier.ImageClassifierOptions.Builder optionsBuilder =
@@ -146,23 +153,8 @@ public class ImageClassifierHelper {
                 baseOptionsBuilder.useNnapi();
         }
 
-        String modelName;
-        switch (currentModel) {
-            case MODEL_MOBILENETV1:
-                modelName = "mobilenetv1.tflite";
-                break;
-            case MODEL_EFFICIENTNETV0:
-                modelName = "efficientnet-lite0.tflite";
-                break;
-            case MODEL_EFFICIENTNETV1:
-                modelName = "efficientnet-lite1.tflite";
-                break;
-            case MODEL_EFFICIENTNETV2:
-                modelName = "efficientnet-lite2.tflite";
-                break;
-            default:
-                modelName = "mobilenetv1.tflite";
-        }
+        String modelName = getModelName();
+
         try {
             imageClassifier =
                     ImageClassifier.createFromFileAndOptions(
@@ -177,14 +169,17 @@ public class ImageClassifierHelper {
         }
     }
 
-    public void classify(Bitmap image, int imageRotation) {
+    public void classify(Bitmap image, int imageRotation) throws InterruptedException {
         if (imageClassifier == null) {
             setupImageClassifier();
         }
 
         // Inference time is the difference between the system time at the start
         // and finish of the process
-        long inferenceTime = SystemClock.uptimeMillis();
+        long startTime = SystemClock.uptimeMillis();
+        if (inferenceTime != 0) {
+            totalExecutionTime += startTime - inferenceTime;
+        }
 
         // Create preprocessor for the image.
         // See https://www.tensorflow.org/lite/inference_with_metadata/
@@ -203,11 +198,13 @@ public class ImageClassifierHelper {
 
         inferenceTime = SystemClock.uptimeMillis() - inferenceTime;
 
-        long timeLeftInPeriod = taskPeriod - inferenceTime;
+        long timeLeftInPeriod = currentTaskPeriod - inferenceTime;
 
         if (timeLeftInPeriod > 0) {
+            Thread.sleep(timeLeftInPeriod);
         }
-
+        totalExecutionTime += inferenceTime;
+        executionCount++;
         imageClassifierListener.onResults(result, inferenceTime);
     }
 
@@ -220,5 +217,46 @@ public class ImageClassifierHelper {
         void onError(String error);
 
         void onResults(List<Classifications> results, long inferenceTime);
+    }
+
+    private String getModelName() {
+        String modelName;
+        switch (currentModel) {
+            case MODEL_MOBILENETV1:
+                modelName = "mobilenetv1.tflite";
+                break;
+            case MODEL_EFFICIENTNETV0:
+                modelName = "efficientnet-lite0.tflite";
+                break;
+            case MODEL_EFFICIENTNETV1:
+                modelName = "efficientnet-lite1.tflite";
+                break;
+            case MODEL_EFFICIENTNETV2:
+                modelName = "efficientnet-lite2.tflite";
+                break;
+            default:
+                modelName = "mobilenetv1.tflite";
+        }
+        return modelName;
+    }
+
+    private String getDelegateName() {
+        String delegateName = "unknown";
+        switch (currentDelegate) {
+            case DELEGATE_CPU:
+                delegateName = "CPU";
+                break;
+            case DELEGATE_GPU:
+                delegateName = "GPU";
+                break;
+            case DELEGATE_NNAPI:
+                delegateName = "NPU";
+                break;
+        }
+        return delegateName;
+    }
+
+    public long getThroughput() {
+        return executionCount * 1000L / totalExecutionTime * 1000;
     }
 }

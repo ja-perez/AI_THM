@@ -37,12 +37,21 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Timer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.io.File;
 import org.tensorflow.lite.examples.imageclassification.ImageClassifierHelper;
 import org.tensorflow.lite.examples.imageclassification.R;
 import org.tensorflow.lite.examples.imageclassification.databinding.FragmentCameraBinding;
@@ -55,12 +64,20 @@ public class CameraFragment extends Fragment
 
     private FragmentCameraBinding fragmentCameraBinding;
     private ImageClassifierHelper imageClassifierHelper;
-    private boolean ImageClassifierStatus = true;
+    private ArrayList<ImageClassifierHelper> imageClassifierHelpers;
+    private boolean imageClassifierStatus = false;
+    private boolean testStatus = false;
+    private List<Classifications> prevResults;
+    private long prevInferenceTime;
     private Bitmap bitmapBuffer;
     private ClassificationResultAdapter classificationResultsAdapter;
     private ImageAnalysis imageAnalyzer;
     private ProcessCameraProvider cameraProvider;
     private final Object task = new Object();
+
+    private SimpleDateFormat dateFormat;
+    private String fileSeries;
+    private String throughputFileName = "Throughput_Measurements";
 
     /**
      * Blocking camera operations are performed using this executor
@@ -106,6 +123,8 @@ public class CameraFragment extends Fragment
         cameraExecutor = Executors.newSingleThreadExecutor();
         imageClassifierHelper = ImageClassifierHelper.create(requireContext()
                 , this);
+        imageClassifierHelpers = new ArrayList<>();
+        imageClassifierHelpers.add(imageClassifierHelper);
 
         // setup result adapter
         classificationResultsAdapter = new ClassificationResultAdapter();
@@ -121,6 +140,32 @@ public class CameraFragment extends Fragment
 
         // Attach listeners to UI control widgets
         initBottomSheetControls();
+
+        dateFormat = new SimpleDateFormat("HH:mm:ss");
+        fileSeries = dateFormat.format(new Date());
+        // Create file for data collection
+        String currentFolder = Objects.requireNonNull(requireContext()
+                .getExternalFilesDir(null)).getAbsolutePath();
+        String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
+        try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("time");
+            sb.append(',');
+            sb.append("model");
+            sb.append(',');
+            sb.append("delegate");
+            sb.append(',');
+            sb.append("throughput");
+            sb.append(',');
+            sb.append("period");
+            sb.append('\n');
+            writer.write(sb.toString());
+            System.out.println("Creating " + throughputFileName + " done!");
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+        }
+        // Create a timer to periodically collect data
+        timedDataCollection();
     }
 
     @Override
@@ -159,10 +204,10 @@ public class CameraFragment extends Fragment
                     int maxResults = imageClassifierHelper.getMaxResults();
                     if (maxResults > 1) {
                         imageClassifierHelper.setMaxResults(maxResults - 1);
-                        updateControlsUi();
                         classificationResultsAdapter.updateAdapterSize(
                                 imageClassifierHelper.getMaxResults()
                         );
+                        updateControlsUi();
                     }
                 });
 
@@ -173,18 +218,18 @@ public class CameraFragment extends Fragment
                     int maxResults = imageClassifierHelper.getMaxResults();
                     if (maxResults < 3) {
                         imageClassifierHelper.setMaxResults(maxResults + 1);
-                        updateControlsUi();
                         classificationResultsAdapter.updateAdapterSize(
                                 imageClassifierHelper.getMaxResults()
                         );
+                        updateControlsUi();
                     }
                 });
 
         // When clicked, reduce the task period of a models classification
         fragmentCameraBinding.bottomSheetLayout.taskPeriodMinus
                 .setOnClickListener(view -> {
-                    int taskPeriod = imageClassifierHelper.getTaskPeriod();
-                    if (taskPeriod > 1) {
+                    long taskPeriod = imageClassifierHelper.getTaskPeriod();
+                    if (taskPeriod > 0) {
                         imageClassifierHelper.setTaskPeriod(taskPeriod - 1);
                         updateControlsUi();
                     }
@@ -193,8 +238,8 @@ public class CameraFragment extends Fragment
         // When clicked, increase the task period of a models classification
         fragmentCameraBinding.bottomSheetLayout.taskPeriodPlus
                 .setOnClickListener(view -> {
-                    int taskPeriod = imageClassifierHelper.getTaskPeriod();
-                    if (taskPeriod < 3) {
+                    long taskPeriod = imageClassifierHelper.getTaskPeriod();
+                    if (taskPeriod < 1000) {
                         imageClassifierHelper.setTaskPeriod(taskPeriod + 1);
                         updateControlsUi();
                     }
@@ -266,7 +311,32 @@ public class CameraFragment extends Fragment
         // in-active and vice-versa.
         fragmentCameraBinding.bottomSheetLayout.stateToggleButton
                 .setOnClickListener(view -> {
-                    ImageClassifierStatus = !ImageClassifierStatus;
+                    imageClassifierStatus = !imageClassifierStatus;
+                    if (imageClassifierStatus) {
+                        configureImageClassifiers();
+                        // Setting the image analyzer will automatically start
+                        // the image analysis by signaling to the camera to begin
+                        // sending images to the analyzer
+                        imageAnalyzer.setAnalyzer(cameraExecutor, image -> {
+                            if (bitmapBuffer == null) {
+                                bitmapBuffer = Bitmap.createBitmap(
+                                        image.getWidth(),
+                                        image.getHeight(),
+                                        Bitmap.Config.ARGB_8888);
+                            }
+                            classifyImage(image);
+                        });
+                    } else {
+                        // Clear the image analyzer to stop the analysis process
+                        imageAnalyzer.clearAnalyzer();
+                    }
+                    updateControlsUi();
+                });
+
+        // When clicked, configure all test models and begin classification
+        fragmentCameraBinding.bottomSheetLayout.testToggleButton
+                .setOnClickListener(view -> {
+                    testStatus = !testStatus;
                     updateControlsUi();
                 });
     }
@@ -275,18 +345,26 @@ public class CameraFragment extends Fragment
     private void updateControlsUi() {
         fragmentCameraBinding.bottomSheetLayout.maxResultsValue
                 .setText(String.valueOf(imageClassifierHelper.getMaxResults()));
+
         fragmentCameraBinding.bottomSheetLayout.thresholdValue
                 .setText(String.format(Locale.US, "%.2f",
                         imageClassifierHelper.getThreshold()));
+
         fragmentCameraBinding.bottomSheetLayout.threadsValue
                 .setText(String.valueOf(imageClassifierHelper.getNumThreads()));
-        if (ImageClassifierStatus) {
-            fragmentCameraBinding.bottomSheetLayout.modelState
-                    .setText(getString(R.string.label_active));
-        } else {
-            fragmentCameraBinding.bottomSheetLayout.modelState
-                    .setText(getString(R.string.label_inactive));
-        }
+
+        fragmentCameraBinding.bottomSheetLayout.taskPeriodValue
+                .setText(String.valueOf(imageClassifierHelper.getTaskPeriod()));
+
+        String modelStateText = getString(imageClassifierStatus ?
+                (R.string.label_active) : (R.string.label_inactive));
+        fragmentCameraBinding.bottomSheetLayout.stateToggleButton
+                .setText(modelStateText);
+
+        String testButtonText = getString(testStatus ?
+                (R.string.label_active) : (R.string.label_inactive));
+        fragmentCameraBinding.bottomSheetLayout.testToggleButton
+                .setText(testButtonText);
         // Needs to be cleared instead of reinitialized because the GPU
         // delegate needs to be initialized on the thread using it when
         // applicable
@@ -294,6 +372,7 @@ public class CameraFragment extends Fragment
             imageClassifierHelper.clearImageClassifier();
         }
 
+        onResults(prevResults, prevInferenceTime);
     }
 
     // Initialize CameraX, and prepare to bind the camera use cases
@@ -338,19 +417,6 @@ public class CameraFragment extends Fragment
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build();
 
-        // The analyzer can then be assigned to the instance
-        imageAnalyzer.setAnalyzer(cameraExecutor, image -> {
-            if (ImageClassifierStatus) {
-                if (bitmapBuffer == null) {
-                    bitmapBuffer = Bitmap.createBitmap(
-                            image.getWidth(),
-                            image.getHeight(),
-                            Bitmap.Config.ARGB_8888);
-                }
-                classifyImage(image);
-            }
-        });
-
         // Must unbind the use-cases before rebinding them
         cameraProvider.unbindAll();
 
@@ -374,19 +440,22 @@ public class CameraFragment extends Fragment
     }
 
     private void classifyImage(@NonNull ImageProxy image) {
-        if (ImageClassifierStatus) {
-            // Copy out RGB bits to the shared bitmap buffer
-            bitmapBuffer.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
+        // Copy out RGB bits to the shared bitmap buffer
+        bitmapBuffer.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
 
-            int imageRotation = image.getImageInfo().getRotationDegrees();
-            image.close();
-            synchronized (task) {
-                // Pass Bitmap and rotation to the image classifier helper for
-                // processing and classification
-                imageClassifierHelper.classify(bitmapBuffer, imageRotation);
+        int imageRotation = image.getImageInfo().getRotationDegrees();
+        image.close();
+        synchronized (task) {
+            // Pass Bitmap and rotation to the image classifier helper for
+            // processing and classification
+            for (ImageClassifierHelper currClassifier: imageClassifierHelpers) {
+                try {
+                    currClassifier.classify(bitmapBuffer, imageRotation);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
-        } else {
-            imageClassifierHelper.clearImageClassifier();
+            imageClassifierHelper = imageClassifierHelpers.get(0);
         }
     }
 
@@ -406,4 +475,5 @@ public class CameraFragment extends Fragment
                     .setText(String.format(Locale.US, "%d ms", inferenceTime));
         });
     }
+
 }
