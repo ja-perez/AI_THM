@@ -23,8 +23,14 @@ import android.os.PowerManager;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import org.tensorflow.lite.examples.imageclassification.databinding.ActivityMainBinding;
+import org.tensorflow.lite.examples.imageclassification.databinding.FragmentCameraBinding;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.PrintWriter;
+import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Date;
 import java.util.Timer;
@@ -58,8 +64,10 @@ public class MainActivity extends AppCompatActivity {
     PowerManager.OnThermalStatusChangedListener thermalStatusListener = null;
     PowerManager pm;
 
-    SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
-    String fileSeries = dateFormat.format(new Date());
+    SimpleDateFormat dateFormat;
+    String fileSeries;
+    String performanceFileName = "Performance_Measurements";
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -67,6 +75,38 @@ public class MainActivity extends AppCompatActivity {
         ActivityMainBinding activityMainBinding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(activityMainBinding.getRoot());
         pm = (PowerManager) getSystemService(POWER_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            thermalStatusListener = status -> processDataCollection();
+            pm.addThermalStatusListener(thermalStatusListener);
+        }
+
+        dateFormat = new SimpleDateFormat("HH:mm:ss");
+        fileSeries = dateFormat.format(new Date());
+        // Create file for data collection
+        String currentFolder = Objects.requireNonNull(getExternalFilesDir(null)).getAbsolutePath();
+        String FILEPATH = currentFolder + File.separator + performanceFileName + fileSeries + ".csv";
+        try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("time");
+            sb.append(',');
+            sb.append("thermalStatus");
+            sb.append(',');
+            sb.append("cpuTemperature");
+            sb.append(',');
+            sb.append("gpuTemperature");
+            sb.append(',');
+            sb.append("npuTemperature");
+            sb.append(',');
+            sb.append("cpuFrequency");
+            sb.append(',');
+            sb.append("gpuFrequency");
+            sb.append('\n');
+            writer.write(sb.toString());
+            System.out.println("Creating " + performanceFileName + " done!");
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+        }
 
         dataCollection();
     }
@@ -135,6 +175,7 @@ public class MainActivity extends AppCompatActivity {
         Timer t = new Timer();
         t.scheduleAtFixedRate(
                 new TimerTask() {
+                    @Override
                     public void run() {
                         processDataCollection();
                     }
@@ -144,20 +185,58 @@ public class MainActivity extends AppCompatActivity {
 
     public void processDataCollection() {
         String currentFolder = Objects.requireNonNull(getExternalFilesDir(null)).getAbsolutePath();
-        String FILEPATH = currentFolder + File.separator + "Performance_Measurements" + fileSeries + ".csv";
-        System.out.println("Processing data");
-        System.out.println("Output file path: " + FILEPATH);
-        String currentStatus = "Unknown";
+        String FILEPATH = currentFolder + File.separator + performanceFileName + fileSeries + ".csv";
+
+        ArrayList<Float> currentFrequencies = processFrequencyData();
+        ArrayList<String> currentThermalData = processThermalData();
+
+        try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("time");
+            sb.append(',');
+            sb.append(currentThermalData.get(0));
+            sb.append(',');
+            sb.append(currentThermalData.get(1));
+            sb.append(',');
+            sb.append(currentThermalData.get(2));
+            sb.append(',');
+            sb.append(currentThermalData.get(3));
+            sb.append(',');
+            sb.append(currentFrequencies.get(0));
+            sb.append(',');
+            sb.append(currentFrequencies.get(1));
+            sb.append('\n');
+            writer.write(sb.toString());
+            System.out.println("Creating " + performanceFileName + " done!");
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+        } catch (IndexOutOfBoundsException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private ArrayList<Float> processFrequencyData() {
+        /*
+        currentFrequencies = [cpuFrequency, gpuFrequency]
+         */
+        ArrayList<Float> currentFrequencies = new ArrayList<>();
+
+        return currentFrequencies;
+    }
+
+    private ArrayList<String> processThermalData() {
+        /*
+        currentThermalData = [thermalStatus, cpuTemperature, gpuTemperature, npuTemperature]
+         */
+
+        ArrayList<String> currentThermalData= new ArrayList<>();
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             int currentThermalStatus = pm.getCurrentThermalStatus();
-            currentStatus = getThermalStatusName(currentThermalStatus);
+            String currentStatus = getThermalStatusName(currentThermalStatus);
+            currentThermalData.add(currentStatus);
         }
-        System.out.println(currentStatus);
-        float currentHeadRoom = 0f;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            currentHeadRoom = pm.getThermalHeadroom(2);
-        }
-        System.out.println(currentHeadRoom);
 
+        return currentThermalData;
     }
+
 }

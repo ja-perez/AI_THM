@@ -459,6 +459,63 @@ public class CameraFragment extends Fragment
         }
     }
 
+    private void configureImageClassifiers() {
+        imageClassifierHelpers.clear();
+        imageClassifierHelpers.add(imageClassifierHelper);
+        if (testStatus) {
+            for (int i = 0; i < 2; i++) {
+                ImageClassifierHelper currClassifier = ImageClassifierHelper.create(
+                        requireContext(), this);
+                imageClassifierHelpers.add(currClassifier);
+            }
+        }
+    }
+
+    private void timedDataCollection() {
+        // Create a timer to periodically collect data
+        Timer t = new Timer();
+        t.scheduleAtFixedRate(
+                new java.util.TimerTask() {
+                    @Override
+                    public void run() {
+                        processDataCollection();
+                    }
+                },
+                0,
+                1000
+        );
+    }
+
+    private void processDataCollection() {
+        // Get current folder and path
+        String currentFolder = Objects.requireNonNull(requireContext()
+                .getExternalFilesDir(null)).getAbsolutePath();
+        String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
+
+        // Get current throughput
+        long throughput = imageClassifierHelper.getThroughput();
+        long period = imageClassifierHelper.getTaskPeriod();
+
+        // Write throughput to file
+        try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(dateFormat.format(new Date()));
+            sb.append(',');
+            sb.append(imageClassifierHelper.getCurrentModel());
+            sb.append(',');
+            sb.append(imageClassifierHelper.getCurrentDelegate());
+            sb.append(',');
+            sb.append(throughput);
+            sb.append(',');
+            sb.append(period);
+            sb.append('\n');
+            writer.write(sb.toString());
+            System.out.println("Writing to " + throughputFileName + " done!");
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
     @Override
     public void onError(String error) {
         requireActivity().runOnUiThread(() -> {
@@ -470,9 +527,17 @@ public class CameraFragment extends Fragment
     @Override
     public void onResults(List<Classifications> results, long inferenceTime) {
         requireActivity().runOnUiThread(() -> {
-            classificationResultsAdapter.updateResults(results.get(0).getCategories());
-            fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
-                    .setText(String.format(Locale.US, "%d ms", inferenceTime));
+            if (imageClassifierStatus && results != null) {
+                prevResults = results;
+                prevInferenceTime = inferenceTime;
+                classificationResultsAdapter.updateResults(results.get(0).getCategories());
+                fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
+                        .setText(String.format(Locale.US, "%d ms", inferenceTime));
+            } else {
+                classificationResultsAdapter.updateResults(new ArrayList<>());
+                fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
+                        .setText(R.string.default_inference_time);
+            }
         });
     }
 
