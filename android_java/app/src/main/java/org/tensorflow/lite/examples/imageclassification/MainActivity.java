@@ -46,16 +46,6 @@ TODO: General Functionality
     - Start/Stop classification
     - Add model for classification
 
-TODO: Data collection
-    - get[CPU/GPU]Frequency
-    - get[CPU/GPU/NPU]Temperature
-    - getThroughput
-
-TODO: Data processing
-    - processThermalData
-    - processFrequencyData
-    - processThroughputData
-
 TODO: Experiment specification
     - runTestConfiguration
     - setTaskToDelegate
