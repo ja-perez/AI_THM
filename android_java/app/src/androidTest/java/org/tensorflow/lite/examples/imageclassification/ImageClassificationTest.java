@@ -46,7 +46,7 @@ public class ImageClassificationTest {
     );
 
     @Test
-    public void classificationResultsShouldNotChange() {
+    public void classificationResultsShouldNotChange() throws InterruptedException {
         ImageClassifierHelper helper = ImageClassifierHelper.create(
                 InstrumentationRegistry.getInstrumentation().getContext(),
                 new ImageClassifierHelper.ClassifierListener() {
