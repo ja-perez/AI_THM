@@ -17,6 +17,7 @@ package org.tensorflow.lite.examples.imageclassification.fragments;
 
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.media.Image;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -52,23 +53,23 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.io.File;
-import org.tensorflow.lite.examples.imageclassification.ImageClassifierHelper;
+import org.tensorflow.lite.examples.imageclassification.ImageClassifierHelperKotlin;
 import org.tensorflow.lite.examples.imageclassification.R;
 import org.tensorflow.lite.examples.imageclassification.databinding.FragmentCameraBinding;
 import org.tensorflow.lite.task.vision.classifier.Classifications;
 
 /** Fragment for displaying and controlling the device camera and other UI */
 public class CameraFragment extends Fragment
-        implements ImageClassifierHelper.ClassifierListener {
+        implements ImageClassifierHelperKotlin.ClassifierListener {
     private static final String TAG = "Image Classifier";
 
     private FragmentCameraBinding fragmentCameraBinding;
-    private ImageClassifierHelper imageClassifierHelper;
-    private ArrayList<ImageClassifierHelper> imageClassifierHelpers;
+    private BitmapUpdaterApi bitmapUpdaterApi;
+    private DynamicBitmapSource source;
+    private ImageClassifierHelperKotlin imageClassifierHelper;
+    private ArrayList<ImageClassifierHelperKotlin> imageClassifierHelpers;
     private boolean imageClassifierStatus = false;
     private boolean testStatus = false;
-    private List<Classifications> prevResults;
-    private long prevInferenceTime;
     private Bitmap bitmapBuffer;
     private ClassificationResultAdapter classificationResultsAdapter;
     private ImageAnalysis imageAnalyzer;
@@ -77,7 +78,8 @@ public class CameraFragment extends Fragment
 
     private SimpleDateFormat dateFormat;
     private String fileSeries;
-    private String throughputFileName = "Throughput_Measurements";
+    private final String throughputFileName = "Throughput_Measurements";
+    private Timer t;
 
     /**
      * Blocking camera operations are performed using this executor
@@ -114,6 +116,9 @@ public class CameraFragment extends Fragment
         cameraExecutor.shutdown();
         synchronized (task) {
             imageClassifierHelper.clearImageClassifier();
+            for (ImageClassifierHelperKotlin currClassifier : imageClassifierHelpers) {
+                currClassifier.clearImageClassifier();
+            }
         }
     }
 
@@ -121,8 +126,18 @@ public class CameraFragment extends Fragment
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         cameraExecutor = Executors.newSingleThreadExecutor();
-        imageClassifierHelper = ImageClassifierHelper.create(requireContext()
-                , this);
+
+        // Set up BitmapUpdaterApi
+        bitmapUpdaterApi = new BitmapUpdaterApi();
+
+        // Set up DynamicBitmapSource
+        source = new DynamicBitmapSource(bitmapUpdaterApi);
+
+        imageClassifierHelper = new ImageClassifierHelperKotlin(
+                requireContext(),
+                this,
+                source,
+                0);
         imageClassifierHelpers = new ArrayList<>();
         imageClassifierHelpers.add(imageClassifierHelper);
 
@@ -134,6 +149,7 @@ public class CameraFragment extends Fragment
                 .setAdapter(classificationResultsAdapter);
         fragmentCameraBinding.recyclerviewResults
                 .setLayoutManager(new LinearLayoutManager(requireContext()));
+
 
         // Set up the camera and its use cases
         fragmentCameraBinding.viewFinder.post(this::setUpCamera);
@@ -148,24 +164,23 @@ public class CameraFragment extends Fragment
                 .getExternalFilesDir(null)).getAbsolutePath();
         String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("time");
-            sb.append(',');
-            sb.append("model");
-            sb.append(',');
-            sb.append("delegate");
-            sb.append(',');
-            sb.append("throughput");
-            sb.append(',');
-            sb.append("period");
-            sb.append('\n');
-            writer.write(sb.toString());
+            String sb = "time" +
+                    ',' +
+                    "index" +
+                    ',' +
+                    "model" +
+                    ',' +
+                    "delegate" +
+                    ',' +
+                    "throughput" +
+                    ',' +
+                    "period" +
+                    '\n';
+            writer.write(sb);
             System.out.println("Creating " + throughputFileName + " done!");
         } catch (FileNotFoundException e) {
             System.out.println(e.getMessage());
         }
-        // Create a timer to periodically collect data
-        timedDataCollection();
     }
 
     @Override
@@ -314,21 +329,13 @@ public class CameraFragment extends Fragment
                     imageClassifierStatus = !imageClassifierStatus;
                     if (imageClassifierStatus) {
                         configureImageClassifiers();
-                        // Setting the image analyzer will automatically start
-                        // the image analysis by signaling to the camera to begin
-                        // sending images to the analyzer
-                        imageAnalyzer.setAnalyzer(cameraExecutor, image -> {
-                            if (bitmapBuffer == null) {
-                                bitmapBuffer = Bitmap.createBitmap(
-                                        image.getWidth(),
-                                        image.getHeight(),
-                                        Bitmap.Config.ARGB_8888);
-                            }
-                            classifyImage(image);
-                        });
+                        source.startStream();
+                        runImageClassifiers();
+                        timedDataCollection();
                     } else {
-                        // Clear the image analyzer to stop the analysis process
-                        imageAnalyzer.clearAnalyzer();
+                        t.cancel();
+                        pauseImageClassifiers();
+                        source.pauseStream();
                     }
                     updateControlsUi();
                 });
@@ -337,6 +344,12 @@ public class CameraFragment extends Fragment
         fragmentCameraBinding.bottomSheetLayout.testToggleButton
                 .setOnClickListener(view -> {
                     testStatus = !testStatus;
+                    if (!testStatus) {
+                        for (ImageClassifierHelperKotlin currClassifier : imageClassifierHelpers) {
+                            currClassifier.clearImageClassifier();
+                        }
+                        imageClassifierHelpers.clear();
+                    }
                     updateControlsUi();
                 });
     }
@@ -371,8 +384,6 @@ public class CameraFragment extends Fragment
         synchronized (task) {
             imageClassifierHelper.clearImageClassifier();
         }
-
-        onResults(prevResults, prevInferenceTime);
     }
 
     // Initialize CameraX, and prepare to bind the camera use cases
@@ -417,6 +428,18 @@ public class CameraFragment extends Fragment
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build();
 
+
+        // The analyzer can then be assigned to the instance
+        imageAnalyzer.setAnalyzer(cameraExecutor, image -> {
+            if (bitmapBuffer == null) {
+                bitmapBuffer = Bitmap.createBitmap(
+                        image.getWidth(),
+                        image.getHeight(),
+                        Bitmap.Config.ARGB_8888);
+            }
+            updateImage(image);
+        });
+
         // Must unbind the use-cases before rebinding them
         cameraProvider.unbindAll();
 
@@ -439,7 +462,7 @@ public class CameraFragment extends Fragment
         }
     }
 
-    private void classifyImage(@NonNull ImageProxy image) {
+    private void updateImage(@NonNull ImageProxy image) {
         // Copy out RGB bits to the shared bitmap buffer
         bitmapBuffer.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
 
@@ -448,14 +471,8 @@ public class CameraFragment extends Fragment
         synchronized (task) {
             // Pass Bitmap and rotation to the image classifier helper for
             // processing and classification
-            for (ImageClassifierHelper currClassifier: imageClassifierHelpers) {
-                try {
-                    currClassifier.classify(bitmapBuffer, imageRotation);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            imageClassifierHelper = imageClassifierHelpers.get(0);
+            bitmapUpdaterApi.setLatestBitmap(bitmapBuffer);
+            bitmapUpdaterApi.setLatestImageRotation(imageRotation);
         }
     }
 
@@ -464,16 +481,31 @@ public class CameraFragment extends Fragment
         imageClassifierHelpers.add(imageClassifierHelper);
         if (testStatus) {
             for (int i = 0; i < 2; i++) {
-                ImageClassifierHelper currClassifier = ImageClassifierHelper.create(
-                        requireContext(), this);
+                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+                        requireContext(),
+                        this,
+                        source,
+                        i + 1);
                 imageClassifierHelpers.add(currClassifier);
             }
         }
     }
 
+    private void runImageClassifiers() {
+        for (ImageClassifierHelperKotlin currClassifier : imageClassifierHelpers) {
+            currClassifier.startCollect();
+        }
+    }
+
+    private void pauseImageClassifiers() {
+        for (ImageClassifierHelperKotlin currClassifier : imageClassifierHelpers) {
+            currClassifier.pauseCollect();
+        }
+    }
+
     private void timedDataCollection() {
         // Create a timer to periodically collect data
-        Timer t = new Timer();
+        t = new Timer();
         t.scheduleAtFixedRate(
                 new java.util.TimerTask() {
                     @Override
@@ -492,27 +524,30 @@ public class CameraFragment extends Fragment
                 .getExternalFilesDir(null)).getAbsolutePath();
         String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
 
-        // Get current throughput
-        long throughput = imageClassifierHelper.getThroughput();
-        long period = imageClassifierHelper.getTaskPeriod();
+        for (ImageClassifierHelperKotlin currClassifier: imageClassifierHelpers) {
+            long throughput = currClassifier.calculateThroughput();
+            long period = currClassifier.getTaskPeriod();
 
-        // Write throughput to file
-        try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(dateFormat.format(new Date()));
-            sb.append(',');
-            sb.append(imageClassifierHelper.getCurrentModel());
-            sb.append(',');
-            sb.append(imageClassifierHelper.getCurrentDelegate());
-            sb.append(',');
-            sb.append(throughput);
-            sb.append(',');
-            sb.append(period);
-            sb.append('\n');
-            writer.write(sb.toString());
-            System.out.println("Writing to " + throughputFileName + " done!");
-        } catch (FileNotFoundException e) {
-            System.out.println(e.getMessage());
+            // Write throughput to file
+            try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
+                dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
+                String sb = dateFormat.format(new Date()) +
+                        ',' +
+                        currClassifier.getIndex() +
+                        ',' +
+                        currClassifier.getCurrentModel() +
+                        ',' +
+                        currClassifier.getCurrentDelegate() +
+                        ',' +
+                        throughput +
+                        ',' +
+                        period +
+                        '\n';
+                writer.write(sb);
+                System.out.println("Writing to " + throughputFileName + " done!");
+            } catch (FileNotFoundException e) {
+                System.out.println(e.getMessage());
+            }
         }
     }
 
@@ -525,19 +560,11 @@ public class CameraFragment extends Fragment
     }
 
     @Override
-    public void onResults(List<Classifications> results, long inferenceTime) {
+    public void onResults(List<? extends Classifications> results, long inferenceTime) {
         requireActivity().runOnUiThread(() -> {
-            if (imageClassifierStatus && results != null) {
-                prevResults = results;
-                prevInferenceTime = inferenceTime;
                 classificationResultsAdapter.updateResults(results.get(0).getCategories());
                 fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
                         .setText(String.format(Locale.US, "%d ms", inferenceTime));
-            } else {
-                classificationResultsAdapter.updateResults(new ArrayList<>());
-                fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
-                        .setText(R.string.default_inference_time);
-            }
         });
     }
 
