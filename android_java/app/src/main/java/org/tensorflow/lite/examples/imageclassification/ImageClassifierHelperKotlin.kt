@@ -54,6 +54,9 @@ class ImageClassifierHelperKotlin(
     private var run = false
     private var job: Job? = null
     private var inferenceTime: Long = 0
+    private var endTime: Long = 0
+    private var totalInferenceTime: Long = 0
+    private var totalQueueTime: Long = 0
     private var executionCount = 0
     private var totalExecutionTime: Long = 1
     private var imageClassifier: ImageClassifier? = null
@@ -87,6 +90,14 @@ class ImageClassifierHelperKotlin(
         return (executionCount * 1000) / max(1L, (totalExecutionTime / 1000000));
     }
 
+    fun calcAvgInferenceTime(): Long {
+        return (totalInferenceTime) / (executionCount * 1000)
+    }
+
+    fun calculateAvgTAT(): Long {
+        return (totalQueueTime) / (executionCount * 100)
+    }
+    
     private fun setupImageClassifier() {
         val optionsBuilder = ImageClassifierOptions.builder()
             .setScoreThreshold(threshold)
@@ -169,9 +180,7 @@ class ImageClassifierHelperKotlin(
         // Inference time is the difference between the system time at the start
         // and finish of the process
         val startTime = SystemClock.uptimeMillis()
-        if (inferenceTime != 0L) {
-            totalExecutionTime += startTime - inferenceTime
-        }
+        val queueTime = endTime - startTime
 
         // Create preprocessor for the image.
         // See https://www.tensorflow.org/lite/inference_with_metadata/
@@ -183,16 +192,24 @@ class ImageClassifierHelperKotlin(
 
         // Classify the input image
         val result = imageClassifier?.classify(tensorImage)
-        inferenceTime = SystemClock.uptimeMillis() - inferenceTime
+        inferenceTime = SystemClock.uptimeMillis() - startTime
+        totalInferenceTime += inferenceTime
+        totalQueueTime += queueTime
+        executionCount++
+
         val timeLeftInPeriod = taskPeriod - inferenceTime
         if (timeLeftInPeriod > 0) {
+            totalExecutionTime += taskPeriod
             runBlocking {
                 delay(timeLeftInPeriod)
             }
+        } else {
+            totalExecutionTime = inferenceTime + queueTime
         }
-        totalExecutionTime += inferenceTime
-        executionCount++
-        imageClassifierListener?.onResults(result, inferenceTime)
+
+        endTime = SystemClock.uptimeMillis()
+
+        imageClassifierListener?.onResults(result, inferenceTime, index)
     }
 
     fun clearImageClassifier() {
@@ -202,7 +219,7 @@ class ImageClassifierHelperKotlin(
     /** Listener for passing results back to calling class  */
     interface ClassifierListener {
         fun onError(error: String?)
-        fun onResults(results: List<Classifications?>?, inferenceTime: Long)
+        fun onResults(results: List<Classifications?>?, inferenceTime: Long, modelIndex: Int)
     }
 
     private val modelName: String

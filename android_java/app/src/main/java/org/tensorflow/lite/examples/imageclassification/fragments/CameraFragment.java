@@ -174,6 +174,10 @@ public class CameraFragment extends Fragment
                     ',' +
                     "throughput" +
                     ',' +
+                    "inferenceTime" +
+                    ',' +
+                    "turnAroundTime" +
+                    ',' +
                     "period" +
                     '\n';
             writer.write(sb);
@@ -333,9 +337,11 @@ public class CameraFragment extends Fragment
                         runImageClassifiers();
                         timedDataCollection();
                     } else {
-                        t.cancel();
-                        pauseImageClassifiers();
-                        source.pauseStream();
+                        synchronized (task) {
+                            t.cancel();
+                            pauseImageClassifiers();
+                            source.pauseStream();
+                        }
                     }
                     updateControlsUi();
                 });
@@ -526,6 +532,8 @@ public class CameraFragment extends Fragment
 
         for (ImageClassifierHelperKotlin currClassifier: imageClassifierHelpers) {
             long throughput = currClassifier.calculateThroughput();
+            long inferenceTime = currClassifier.calcAvgInferenceTime();
+            long turnAroundTime = currClassifier.calculateAvgTAT();
             long period = currClassifier.getTaskPeriod();
 
             // Write throughput to file
@@ -540,6 +548,10 @@ public class CameraFragment extends Fragment
                         currClassifier.getCurrentDelegate() +
                         ',' +
                         throughput +
+                        ',' +
+                        inferenceTime +
+                        ',' +
+                        turnAroundTime +
                         ',' +
                         period +
                         '\n';
@@ -560,11 +572,13 @@ public class CameraFragment extends Fragment
     }
 
     @Override
-    public void onResults(List<? extends Classifications> results, long inferenceTime) {
+    public void onResults(List<? extends Classifications> results, long inferenceTime, int modelIndex) {
         requireActivity().runOnUiThread(() -> {
+            if (modelIndex == 0) {
                 classificationResultsAdapter.updateResults(results.get(0).getCategories());
                 fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
                         .setText(String.format(Locale.US, "%d ms", inferenceTime));
+            }
         });
     }
 

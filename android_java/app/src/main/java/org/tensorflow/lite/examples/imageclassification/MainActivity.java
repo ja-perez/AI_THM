@@ -72,17 +72,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(activityMainBinding.getRoot());
         pm = (PowerManager) getSystemService(POWER_SERVICE);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            thermalStatusListener = status -> {
-                try {
-                    processDataCollection();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            };
-            pm.addThermalStatusListener(thermalStatusListener);
-        }
-
         try {
             thermalZonePaths = getThermalZoneFilePaths("/sys/class/thermal");
         } catch (IOException | InterruptedException e) {
