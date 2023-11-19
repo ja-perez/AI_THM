@@ -54,7 +54,6 @@ TODO: Experiment specification
 
 /** Entrypoint for app */
 public class MainActivity extends AppCompatActivity {
-    private static String thermalDir;
     PowerManager.OnThermalStatusChangedListener thermalStatusListener = null;
     PowerManager pm;
 
@@ -63,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     String performanceFileName = "Performance_Measurements";
     String[] thermalZonePaths;
     String[] cpuDevicePaths;
+    String currentThermalStatus = "Unknown";
 
 
     @Override
@@ -71,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
         ActivityMainBinding activityMainBinding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(activityMainBinding.getRoot());
         pm = (PowerManager) getSystemService(POWER_SERVICE);
+
 
         try {
             thermalZonePaths = getThermalZoneFilePaths("/sys/class/thermal");
@@ -120,15 +121,9 @@ public class MainActivity extends AppCompatActivity {
 
         System.out.println("in resume");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            thermalStatusListener = new PowerManager.OnThermalStatusChangedListener() {
-                @Override
-                public void onThermalStatusChanged(int status) {
-                    try {
-                        processDataCollection();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
+            thermalStatusListener = status -> {
+                int currentStatus = pm.getCurrentThermalStatus();
+                currentThermalStatus = getThermalStatusName(currentStatus);
             };
             pm.addThermalStatusListener(thermalStatusListener);
         }
@@ -203,8 +198,10 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<String> currentThermalData = processThermalData();
         ArrayList<Float> currentFrequencies = processFrequencyData();
 
+        dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
+        String currTime = dateFormat.format(new Date());
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
-            String sb = dateFormat.format(new Date()) +
+            String sb = currTime +
                     ',' +
                     currentThermalData.get(0) +
                     ',' +
@@ -260,11 +257,8 @@ public class MainActivity extends AppCompatActivity {
          */
 
         ArrayList<String> currentThermalData= new ArrayList<>();
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            int currentThermalStatus = pm.getCurrentThermalStatus();
-            String currentStatus = getThermalStatusName(currentThermalStatus);
-            currentThermalData.add(currentStatus);
-        }
+
+        currentThermalData.add(currentThermalStatus);
 
         Float avgCPUTemp = 0f, avgGPUTemp = 0f, avgNPUTemp = 0f, currFileTemp = 0f;
         int cpuCount = 0, gpuCount = 0, npuCount = 0;
