@@ -50,7 +50,8 @@ class ImageClassifierHelperKotlin(
     var maxResults: Int = 3
     private var currentDelegate: Int = 0
     private var currentModel: Int = 0
-    var taskPeriod: Long = 500
+    private var currentTaskPeriod: Int = 0
+    var taskPeriod: Long = 0
     private var run = false
     private var job: Job? = null
     private var inferenceTime: Long = 0
@@ -82,20 +83,25 @@ class ImageClassifierHelperKotlin(
         return this.modelName
     }
 
+    fun setCurrentPeriod(currOption: Int) {
+        this.currentTaskPeriod = currOption
+        this.taskPeriod = periodOption
+    }
+
     fun getIndex(): Int {
         return index
     }
 
     fun calculateThroughput(): Long {
-        return (executionCount * 1000) / max(1L, (totalExecutionTime / 1000000));
+        return executionCount / max(1, (totalExecutionTime / 1000));
     }
 
     fun calcAvgInferenceTime(): Long {
-        return (totalInferenceTime) / (executionCount * 1000)
+        return totalInferenceTime / max(1, executionCount)
     }
 
     fun calculateAvgTAT(): Long {
-        return (totalQueueTime) / (executionCount * 100)
+        return (totalQueueTime) / max(1, (executionCount * 100))
     }
     
     private fun setupImageClassifier() {
@@ -180,7 +186,7 @@ class ImageClassifierHelperKotlin(
         // Inference time is the difference between the system time at the start
         // and finish of the process
         val startTime = SystemClock.uptimeMillis()
-        val queueTime = endTime - startTime
+        val queueTime = max(0, endTime - startTime)
 
         // Create preprocessor for the image.
         // See https://www.tensorflow.org/lite/inference_with_metadata/
@@ -204,7 +210,7 @@ class ImageClassifierHelperKotlin(
                 delay(timeLeftInPeriod)
             }
         } else {
-            totalExecutionTime = inferenceTime + queueTime
+            totalExecutionTime += inferenceTime + queueTime
         }
 
         endTime = SystemClock.uptimeMillis()
@@ -235,13 +241,26 @@ class ImageClassifierHelperKotlin(
         }
     private val delegateName: String
         get() {
-            var delegateName = "unknown"
+            var currDelegateName = "unknown"
             when (currentDelegate) {
-                DELEGATE_CPU -> delegateName = "CPU"
-                DELEGATE_GPU -> delegateName = "GPU"
-                DELEGATE_NNAPI -> delegateName = "NPU"
+                DELEGATE_CPU -> currDelegateName = "CPU"
+                DELEGATE_GPU -> currDelegateName = "GPU"
+                DELEGATE_NNAPI -> currDelegateName = "NPU"
             }
-            return delegateName
+            return currDelegateName
+        }
+
+    private val periodOption: Long
+        get() {
+            var taskPeriodOption = 0L
+            when (currentTaskPeriod) {
+                0 -> taskPeriodOption = 0L
+                1 -> taskPeriodOption = 50L
+                2 -> taskPeriodOption = 100L
+                3 -> taskPeriodOption = 250L
+                4 -> taskPeriodOption = 500L
+            }
+            return taskPeriodOption
         }
 
     companion object {
