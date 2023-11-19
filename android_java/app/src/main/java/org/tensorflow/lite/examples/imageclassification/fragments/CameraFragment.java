@@ -243,27 +243,6 @@ public class CameraFragment extends Fragment
                         updateControlsUi();
                     }
                 });
-
-        // When clicked, reduce the task period of a models classification
-        fragmentCameraBinding.bottomSheetLayout.taskPeriodMinus
-                .setOnClickListener(view -> {
-                    long taskPeriod = imageClassifierHelper.getTaskPeriod();
-                    if (taskPeriod > 0) {
-                        imageClassifierHelper.setTaskPeriod(taskPeriod - 1);
-                        updateControlsUi();
-                    }
-                });
-
-        // When clicked, increase the task period of a models classification
-        fragmentCameraBinding.bottomSheetLayout.taskPeriodPlus
-                .setOnClickListener(view -> {
-                    long taskPeriod = imageClassifierHelper.getTaskPeriod();
-                    if (taskPeriod < 1000) {
-                        imageClassifierHelper.setTaskPeriod(taskPeriod + 1);
-                        updateControlsUi();
-                    }
-                });
-
         // When clicked, decrease the number of threads used for classification
         fragmentCameraBinding.bottomSheetLayout.threadsMinus
                 .setOnClickListener(view -> {
@@ -326,6 +305,26 @@ public class CameraFragment extends Fragment
                     }
                 });
 
+        // When clicked, change the length of time between the execution of the next AI task
+        fragmentCameraBinding.bottomSheetLayout.spinnerPeriod
+                .setSelection(0, false);
+        fragmentCameraBinding.bottomSheetLayout.spinnerPeriod
+                .setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(AdapterView<?> adapterView,
+                                               View view,
+                                               int position,
+                                               long id) {
+                        imageClassifierHelper.setCurrentPeriod(position);
+                        updateControlsUi();
+                    }
+
+                    @Override
+                    public void onNothingSelected(AdapterView<?> adapterView) {
+                        // no-op
+                    }
+                });
+
         // When clicked, toggle the status of classification from active to
         // in-active and vice-versa.
         fragmentCameraBinding.bottomSheetLayout.stateToggleButton
@@ -371,9 +370,6 @@ public class CameraFragment extends Fragment
 
         fragmentCameraBinding.bottomSheetLayout.threadsValue
                 .setText(String.valueOf(imageClassifierHelper.getNumThreads()));
-
-        fragmentCameraBinding.bottomSheetLayout.taskPeriodValue
-                .setText(String.valueOf(imageClassifierHelper.getTaskPeriod()));
 
         String modelStateText = getString(imageClassifierStatus ?
                 (R.string.label_active) : (R.string.label_inactive));

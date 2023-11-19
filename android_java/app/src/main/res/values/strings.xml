@@ -46,7 +46,14 @@
     <string name="default_threshold">0.50</string>
     <string name="default_inference_time">0ms</string>
     <string name="default_max_results">3</string>
-    <string name="default_task_period">500</string>
+
+    <string-array name="period_spinner_options">
+        <item>0</item>
+        <item>50</item>
+        <item>100</item>
+        <item>250</item>
+        <item>500</item>
+    </string-array>
 
     <string-array name="delegate_spinner_titles">
         <item>CPU</item>
