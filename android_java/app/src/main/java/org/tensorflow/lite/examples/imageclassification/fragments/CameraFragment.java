@@ -166,8 +166,6 @@ public class CameraFragment extends Fragment
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
             String sb = "time" +
                     ',' +
-                    "index" +
-                    ',' +
                     "model" +
                     ',' +
                     "delegate" +
@@ -482,12 +480,14 @@ public class CameraFragment extends Fragment
         imageClassifierHelpers.clear();
         imageClassifierHelpers.add(imageClassifierHelper);
         if (testStatus) {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i <= 3; i++) {
                 ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
                         requireContext(),
                         this,
                         source,
                         i + 1);
+                currClassifier.setCurrentModel(i + 1);
+                currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
                 imageClassifierHelpers.add(currClassifier);
             }
         }
@@ -536,8 +536,6 @@ public class CameraFragment extends Fragment
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
                 dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
                 String sb = dateFormat.format(new Date()) +
-                        ',' +
-                        currClassifier.getIndex() +
                         ',' +
                         currClassifier.getCurrentModel() +
                         ',' +

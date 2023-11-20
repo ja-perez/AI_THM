@@ -50,7 +50,7 @@ class ImageClassifierHelperKotlin(
     var maxResults: Int = 3
     private var currentDelegate: Int = 0
     private var currentModel: Int = 0
-    private var currentTaskPeriod: Int = 0
+    var currentTaskPeriod: Int = 0
     var taskPeriod: Long = 0
     private var run = false
     private var job: Job? = null
@@ -101,7 +101,7 @@ class ImageClassifierHelperKotlin(
     }
 
     fun calculateAvgTAT(): Long {
-        return (totalQueueTime) / max(1, (executionCount * 100))
+        return ((totalQueueTime + totalInferenceTime) / max(1, (executionCount)))
     }
     
     private fun setupImageClassifier() {
@@ -186,7 +186,10 @@ class ImageClassifierHelperKotlin(
         // Inference time is the difference between the system time at the start
         // and finish of the process
         val startTime = SystemClock.uptimeMillis()
-        val queueTime = max(0, endTime - startTime)
+        var queueTime = 0L
+        if (endTime != 0L) {
+            queueTime = max(0, startTime - endTime)
+        }
 
         // Create preprocessor for the image.
         // See https://www.tensorflow.org/lite/inference_with_metadata/
