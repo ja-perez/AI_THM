@@ -472,7 +472,9 @@ public class MainActivity extends AppCompatActivity {
         Process process = Runtime.getRuntime().exec(cmd);
         BufferedReader reader = new BufferedReader(new
                 InputStreamReader(process.getInputStream()));
-        String[] currentUtilization = reader.readLine().split("%");
+        String tempReader = reader.readLine();
+        if (tempReader == null) return 0f;
+        String[] currentUtilization = tempReader.split("%");
         String currentGPUUtilization = currentUtilization[0];
 
         if (currentGPUUtilization != null) {

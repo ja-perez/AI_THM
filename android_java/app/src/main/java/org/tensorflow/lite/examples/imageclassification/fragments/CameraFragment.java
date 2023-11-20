@@ -19,11 +19,13 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.media.Image;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -80,6 +82,7 @@ public class CameraFragment extends Fragment
     private String fileSeries;
     private final String throughputFileName = "Throughput_Measurements";
     private Timer t;
+    private Long testStartTime;
 
     /**
      * Blocking camera operations are performed using this executor
@@ -329,10 +332,12 @@ public class CameraFragment extends Fragment
                 .setOnClickListener(view -> {
                     imageClassifierStatus = !imageClassifierStatus;
                     if (imageClassifierStatus) {
+                        testStartTime = SystemClock.uptimeMillis();
                         configureImageClassifiers();
                         source.startStream();
                         runImageClassifiers();
                         timedDataCollection();
+
                     } else {
                         synchronized (task) {
                             t.cancel();
@@ -555,6 +560,15 @@ public class CameraFragment extends Fragment
                 System.out.println(e.getMessage());
             }
         }
+
+        Long elapsedTimeMS = SystemClock.uptimeMillis() - testStartTime;
+        Long elapsedTimeS = elapsedTimeMS/ 1000;
+        Long elapsedTimeMin = elapsedTimeS / 60;
+        if (elapsedTimeMin >= 5) {
+            Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
+            requireActivity().runOnUiThread(toggleButton::callOnClick);
+        }
+
     }
 
     @Override
