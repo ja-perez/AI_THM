@@ -1,11 +1,11 @@
 /*
- * Copyright 2022 The TensorFlow Authors. All Rights Reserved.
+ * Copyright 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *             http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.tensorflow.lite.examples.imageclassification;
 
+import android.content.Context;
 import android.os.Build;
-import android.os.Bundle;
+import android.os.Build.VERSION_CODES;
 import android.os.PowerManager;
 
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-import org.tensorflow.lite.examples.imageclassification.databinding.ActivityMainBinding;
+import androidx.annotation.RequiresApi;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -33,131 +31,61 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
-import java.util.Timer;
-import java.util.TimerTask;
 
-/*
-TODO: General Functionality
-    - Start/Stop classification
-    - Add model for classification
-
-TODO: Experiment specification
-    - runTestConfiguration
-    - setTaskToDelegate
-    - setTaskPeriod
- */
-
-/** Entrypoint for app */
-public class MainActivity extends AppCompatActivity {
-//    PowerManager.OnThermalStatusChangedListener thermalStatusListener = null;
-//    PowerManager pm;
-
-    private PFManager pfManager;
-
-    SimpleDateFormat dateFormat;
-    String fileSeries;
+// A manager class that managers PF APIs in Java code.
+// The class managers thermal throttle status listener and other PF related tasks.
+@RequiresApi(api = VERSION_CODES.Q)
+public class PFManager implements PowerManager.OnThermalStatusChangedListener {
+    String performanceFilePath = "";
     String performanceFileName = "Performance_Measurements";
-    String[] thermalZonePaths;
-    String[] cpuDevicePaths;
-    String currentThermalStatus = "Unknown";
+    String currentThermalStatus = "None";
+    String[] thermalZonePaths = getThermalZoneFilePaths("/sys/class/thermal");
+    String[] cpuDevicePaths = getCPUDeviceFiles("/sys/devices/system/cpu");
+    public void setPerformanceFilePath(String filePath) {
+        performanceFilePath = filePath;
+    }
 
+    public PFManager() throws IOException, InterruptedException {
+    }
 
-    @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        ActivityMainBinding activityMainBinding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(activityMainBinding.getRoot());
-//        pm = (PowerManager) getSystemService(POWER_SERVICE);
-
+    // Thermal status change listener.
+    public void onThermalStatusChanged(int i) {
         try {
-            thermalZonePaths = getThermalZoneFilePaths("/sys/class/thermal");
-        } catch (IOException | InterruptedException e) {
+            System.out.println("Thermal Status: " + i);
+            currentThermalStatus = getThermalStatusName(i);
+            processDataCollection();
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
 
-        try {
-            cpuDevicePaths = getCPUDeviceFiles("/sys/devices/system/cpu");
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        dateFormat = new SimpleDateFormat("HH:mm:ss");
-        fileSeries = dateFormat.format(new Date());
-        // Create file for data collection
-        String currentFolder = Objects.requireNonNull(getExternalFilesDir(null)).getAbsolutePath();
-        String FILEPATH = currentFolder + File.separator + performanceFileName + fileSeries + ".csv";
-        try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("time");
-            sb.append(',');
-            sb.append("thermalStatus");
-            sb.append(',');
-            sb.append("cpuTemperature");
-            sb.append(',');
-            sb.append("gpuTemperature");
-            sb.append(',');
-            sb.append("npuTemperature");
-            sb.append(',');
-            sb.append("cpuFrequency");
-            sb.append(',');
-            sb.append("gpuFrequency");
-            sb.append(',');
-            sb.append("cpuUtilization");
-            sb.append(',');
-            sb.append("gpuUtilization");
-            sb.append('\n');
-            writer.write(sb.toString());
-            System.out.println("Creating " + performanceFileName + " done!");
-        } catch (FileNotFoundException e) {
-            System.out.println(e.getMessage());
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                this.pfManager = new PFManager();
-            } catch (IOException | InterruptedException e) {
-                throw new RuntimeException(e);
+    public boolean registerListener(Context context) {
+        // Retrieve power manager and register thermal state change callback.
+        if (Build.VERSION.SDK_INT >= VERSION_CODES.Q) {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                pm.addThermalStatusListener(this);
             }
+            return true;
+        } else {
+            return false;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            pfManager.setPerformanceFilePath(FILEPATH);
-        }
-
-        dataCollection();
     }
 
-    @Override
-    protected void onResume() {
-        System.out.println("in resume");
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//            thermalStatusListener = status -> {
-//                int currentStatus = pm.getCurrentThermalStatus();
-//                currentThermalStatus = getThermalStatusName(currentStatus);
-//            };
-//            pm.addThermalStatusListener(thermalStatusListener);
-//        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            Boolean result = pfManager.registerListener(this);
+    public boolean unregisterListener(Context context) {
+        // Remove the thermal state change listener on pause.
+        if (Build.VERSION.SDK_INT >= VERSION_CODES.Q) {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                pm.removeThermalStatusListener(this);
+            }
+            return true;
+        } else {
+            return false;
         }
-
-        super.onResume();
-    }
-
-    protected void onPause() {
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && thermalStatusListener != null) {
-//            pm.removeThermalStatusListener(thermalStatusListener);
-//        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            pfManager.unregisterListener(this);
-        }
-
-        super.onPause();
     }
 
     private String getThermalStatusName(int status) {
@@ -188,42 +116,13 @@ public class MainActivity extends AppCompatActivity {
         return currentStatus;
     }
 
-    @Override
-    public void onBackPressed() {
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
-            // Workaround for Android Q memory leak issue in IRequestFinishCallback$Stub.
-            // (https://issuetracker.google.com/issues/139738913)
-            finishAfterTransition();
-        } else {
-            super.onBackPressed();
-        }
-    }
-
-    public void dataCollection() {
-        Timer t = new Timer();
-        t.scheduleAtFixedRate(
-                new TimerTask() {
-                    @Override
-                    public void run() {
-                        try {
-                            processDataCollection();
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                },
-                0, 2000);
-    }
-
     public void processDataCollection() throws IOException {
-        String currentFolder = Objects.requireNonNull(getExternalFilesDir(null)).getAbsolutePath();
-        String FILEPATH = currentFolder + File.separator + performanceFileName + fileSeries + ".csv";
+        String FILEPATH = performanceFilePath;
 
         ArrayList<String> currentThermalData = processThermalData();
         ArrayList<Float> currentFrequencies = processFrequencyData();
-        ArrayList<String> currentUtilizations = processUtilizationData();
 
-        dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
         String currTime = dateFormat.format(new Date());
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
             String sb = currTime +
@@ -239,43 +138,12 @@ public class MainActivity extends AppCompatActivity {
                     currentFrequencies.get(0) +
                     ',' +
                     currentFrequencies.get(1) +
-                    ',' +
-                    currentUtilizations.get(0) +
-                    ',' +
-                    currentUtilizations.get(1) +
                     '\n';
             writer.write(sb);
             System.out.println("Writing to " + performanceFileName + " done!");
         } catch (FileNotFoundException | IndexOutOfBoundsException e) {
             System.out.println(e.getMessage());
         }
-    }
-
-    private ArrayList<String> processUtilizationData() {
-        /*
-        currentUtilizations = [cpuUtilization, gpuUtilization]
-         */
-        ArrayList<String> currentUtilizations = new ArrayList<>();
-
-        // Get CPU Utilization
-        String cpuUtilization = "0";
-        try {
-            cpuUtilization = getCPUUtilization();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        currentUtilizations.add(cpuUtilization);
-
-        // Get GPU Utilization
-        Float gpuUtilization = 0f;
-        try {
-            gpuUtilization = getGPUUtilization("/sys/class/kgsl/kgsl-3d0");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        currentUtilizations.add(Float.toString(gpuUtilization));
-
-        return currentUtilizations;
     }
 
     private ArrayList<Float> processFrequencyData() {
@@ -314,9 +182,6 @@ public class MainActivity extends AppCompatActivity {
 
         ArrayList<String> currentThermalData= new ArrayList<>();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            currentThermalStatus = pfManager.currentThermalStatus;
-        }
         currentThermalData.add(currentThermalStatus);
 
         Float avgCPUTemp = 0f, avgGPUTemp = 0f, avgNPUTemp = 0f, currFileTemp = 0f;
@@ -442,43 +307,4 @@ public class MainActivity extends AppCompatActivity {
         }
         return (float) 0;
     }
-
-    private static String getCPUUtilization() throws IOException {
-        String cmd = String.format("top -s 6");
-        Process process = Runtime.getRuntime().exec(cmd);
-        BufferedReader reader = new BufferedReader(new
-                InputStreamReader(process.getInputStream()));
-        String curr_cpu;
-        while ((curr_cpu = reader.readLine()) != null) {
-            if (curr_cpu.contains("org.tensorflow")) {
-                while (curr_cpu.contains("  ")) {
-                    curr_cpu = curr_cpu.replace("  ", " ");
-                }
-                curr_cpu = curr_cpu.replaceAll(" ", ",");
-                break;
-            }
-        }
-        List<String> cpu_util;
-        if (curr_cpu != null) {
-            cpu_util = Arrays.asList(curr_cpu.split(","));
-        } else {
-            cpu_util = Arrays.asList("0", "0", "0", "0");
-        }
-        return cpu_util.get(cpu_util.size() - 4);
-    }
-
-    private static Float getGPUUtilization(String gpuDevicePath) throws IOException {
-        String cmd = String.format("cat %s/gpu_busy_percentage", gpuDevicePath);
-        Process process = Runtime.getRuntime().exec(cmd);
-        BufferedReader reader = new BufferedReader(new
-                InputStreamReader(process.getInputStream()));
-        String[] currentUtilization = reader.readLine().split("%");
-        String currentGPUUtilization = currentUtilization[0];
-
-        if (currentGPUUtilization != null) {
-            return Float.parseFloat(currentGPUUtilization);
-        }
-        return (float) 0;
-    }
-
 }
