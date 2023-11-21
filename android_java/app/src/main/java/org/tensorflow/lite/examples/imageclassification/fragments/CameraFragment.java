@@ -17,7 +17,6 @@ package org.tensorflow.lite.examples.imageclassification.fragments;
 
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.media.Image;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
@@ -485,7 +484,7 @@ public class CameraFragment extends Fragment
         imageClassifierHelpers.clear();
         imageClassifierHelpers.add(imageClassifierHelper);
         if (testStatus) {
-            for (int i = 0; i <= 3; i++) {
+            for (int i = 0; i < 3; i++) {
                 ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
                         requireContext(),
                         this,

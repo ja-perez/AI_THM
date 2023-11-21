@@ -260,8 +260,13 @@ class ImageClassifierHelperKotlin(
                 0 -> taskPeriodOption = 0L
                 1 -> taskPeriodOption = 50L
                 2 -> taskPeriodOption = 100L
-                3 -> taskPeriodOption = 250L
-                4 -> taskPeriodOption = 500L
+                3 -> taskPeriodOption = 150L
+                4 -> taskPeriodOption = 200L
+                5 -> taskPeriodOption = 250L
+                6 -> taskPeriodOption = 300L
+                7 -> taskPeriodOption = 350L
+                8 -> taskPeriodOption = 500L
+                else -> taskPeriodOption = 0L
             }
             return taskPeriodOption
         }
