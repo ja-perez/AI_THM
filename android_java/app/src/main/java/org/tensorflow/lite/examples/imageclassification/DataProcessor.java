@@ -37,16 +37,7 @@ public class DataProcessor {
     public DataProcessor(MainActivity activity) {
         mainActivity = activity;
 
-        try {
-            // Run test for root access
-            Runtime.getRuntime().exec("su");
-            isRooted = true;
-            rootAccess = "su -c";
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-            isRooted = false;
-            rootAccess = "";
-        }
+        isRooted = true;
 
         dateFormat = new SimpleDateFormat("HH:mm:ss");
         fileSeries = dateFormat.format(new Date());
@@ -385,7 +376,7 @@ public class DataProcessor {
     private String[] getThermalZoneFilePaths(String thermalDir)
             throws IOException, InterruptedException {
         // thermalDir for Note10+ is usually "/sys/class/thermal"
-        String cmd = String.format("%s ls %s | grep 'thermal_zone'", rootAccess, thermalDir);
+        String cmd = String.format("%s ls %s", rootAccess, thermalDir);
         Process process = Runtime.getRuntime().exec(cmd);
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream()));
@@ -393,9 +384,11 @@ public class DataProcessor {
         String currFileName;
         ArrayList<String> thermalZonePaths = new ArrayList<>();
         while ((currFileName = reader.readLine()) != null) {
-            String thermalZoneFilePath = thermalDir + "/" + currFileName + "/";
-            // Get all thermal zones and filter later
-            thermalZonePaths.add(thermalZoneFilePath);
+            if (currFileName.contains("thermal_zone")) {
+                String thermalZoneFilePath = thermalDir + "/" + currFileName + "/";
+                // Get all thermal zones and filter later
+                thermalZonePaths.add(thermalZoneFilePath);
+            }
         }
 
         reader.close();
@@ -439,8 +432,10 @@ public class DataProcessor {
         String currLine;
         List<String> cpuDevicePaths = new ArrayList<>();
         while ((currLine = reader.readLine()) != null) {
-            String cpuDeviceFilePath = cpuDeviceDirs + "/" + currLine + "/";
-            cpuDevicePaths.add(cpuDeviceFilePath);
+            if (currLine.matches("cpu[0-9]")) {
+                String cpuDeviceFilePath = cpuDeviceDirs + "/" + currLine + "/";
+                cpuDevicePaths.add(cpuDeviceFilePath);
+            }
         }
 
         reader.close();

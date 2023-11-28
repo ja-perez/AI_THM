@@ -16,6 +16,8 @@
 
 package org.tensorflow.lite.examples.imageclassification;
 
+import static java.lang.Runtime.getRuntime;
+
 import android.os.Build;
 import android.os.Bundle;
 
@@ -51,6 +53,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityMainBinding activityMainBinding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(activityMainBinding.getRoot());
+
+        try {
+            Process process = getRuntime().exec("su -c setenforce 0");
+            process.waitFor();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 
         currentFolder = Objects.requireNonNull(getExternalFilesDir(null)).getAbsolutePath();
         dataProcessor = new DataProcessor(this);
