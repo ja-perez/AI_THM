@@ -15,6 +15,8 @@
  */
 package org.tensorflow.lite.examples.imageclassification.fragments;
 
+import static java.lang.Math.max;
+
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.os.Bundle;
@@ -189,6 +191,8 @@ public class CameraFragment extends Fragment
                     "inferenceTime" +
                     ',' +
                     "turnAroundTime" +
+                    ',' +
+                    "idleTime" +
                     ',' +
                     "period" +
                     '\n';
@@ -376,7 +380,7 @@ public class CameraFragment extends Fragment
                                     source,
                                     1 + i);
                             currClassifier.setCurrentModel(0);
-                            currClassifier.setCurrentPeriod(8);
+                            currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
                             imageClassifierHelpers.add(currClassifier);
                         }
 //                        for (int i = 0; i < 2; i++) {
@@ -597,6 +601,7 @@ public class CameraFragment extends Fragment
             long inferenceTime = currClassifier.calcAvgInferenceTime();
             long turnAroundTime = currClassifier.calculateAvgTAT();
             long period = currClassifier.getTaskPeriod();
+            long idleTime = max(0,turnAroundTime - period);
 
             // Write throughput to file
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
@@ -617,6 +622,8 @@ public class CameraFragment extends Fragment
                         ',' +
                         turnAroundTime +
                         ',' +
+                        idleTime +
+                        ',' +
                         period +
                         '\n';
                 writer.write(sb);
@@ -629,7 +636,8 @@ public class CameraFragment extends Fragment
         long elapsedTimeMS = SystemClock.uptimeMillis() - testStartTime;
         long elapsedTimeS = elapsedTimeMS / 1000;
         long elapsedTimeMin = elapsedTimeS / 60;
-        if (elapsedTimeMin >= 3) {
+
+        if (elapsedTimeMin > 3) {
             Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
             requireActivity().runOnUiThread(toggleButton::callOnClick);
         }

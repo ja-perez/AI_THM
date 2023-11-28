@@ -57,9 +57,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             Process process = getRuntime().exec("su -c setenforce 0");
             process.waitFor();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
 
