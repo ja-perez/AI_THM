@@ -81,6 +81,7 @@ public class CameraFragment extends Fragment
     private String fileSeries;
     private final String throughputFileName = "Throughput_Measurements";
     private Timer t;
+    private Long startTime;
     private Long testStartTime;
 
     /**
@@ -161,12 +162,18 @@ public class CameraFragment extends Fragment
 
         dateFormat = new SimpleDateFormat("HH:mm:ss");
         fileSeries = dateFormat.format(new Date());
+        String[] timeValues = fileSeries.split(":");
+        startTime = Long.parseLong(timeValues[0]) * 3600 +
+                Long.parseLong(timeValues[1]) * 60 +
+                Long.parseLong(timeValues[2]);
         // Create file for data collection
         String currentFolder = Objects.requireNonNull(requireContext()
                 .getExternalFilesDir(null)).getAbsolutePath();
         String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
             String sb = "time" +
+                    ',' +
+                    "relativeTime" +
                     ',' +
                     "model" +
                     ',' +
@@ -484,16 +491,43 @@ public class CameraFragment extends Fragment
         imageClassifierHelpers.clear();
         imageClassifierHelpers.add(imageClassifierHelper);
         if (testStatus) {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 2; i++) {
                 ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
                         requireContext(),
                         this,
                         source,
-                        i + 1);
-                currClassifier.setCurrentModel(i + 1);
-                currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
+                        1 + i);
+                currClassifier.setCurrentModel(1);
+                currClassifier.setCurrentPeriod(5);
                 imageClassifierHelpers.add(currClassifier);
             }
+            for (int i = 0; i < 2; i++) {
+                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+                        requireContext(),
+                        this,
+                        source,
+                        3+i);
+                currClassifier.setCurrentModel(2);
+                currClassifier.setCurrentPeriod(6);
+                imageClassifierHelpers.add(currClassifier);
+            }
+//             ImageClassifierHelperKotlin classifier0 = new ImageClassifierHelperKotlin(
+//                    requireContext(),
+//                    this,
+//                    source,
+//                    1);
+//            classifier0.setCurrentModel(1);
+//            classifier0.setCurrentPeriod(5);
+//            imageClassifierHelpers.add(classifier0);
+
+//            ImageClassifierHelperKotlin classifier1 = new ImageClassifierHelperKotlin(
+//                    requireContext(),
+//                    this,
+//                    source,
+//                    2);
+//            classifier1.setCurrentModel(2);
+//            classifier1.setCurrentPeriod(6);
+//            imageClassifierHelpers.add(classifier1);
         }
     }
 
@@ -539,7 +573,11 @@ public class CameraFragment extends Fragment
             // Write throughput to file
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
                 dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
-                String sb = dateFormat.format(new Date()) +
+                String currTime = dateFormat.format(new Date());
+                String relativeTime = getRelativeTime(currTime);
+                String sb = currTime +
+                        ',' +
+                        relativeTime +
                         ',' +
                         currClassifier.getCurrentModel() +
                         ',' +
@@ -560,14 +598,24 @@ public class CameraFragment extends Fragment
             }
         }
 
-        Long elapsedTimeMS = SystemClock.uptimeMillis() - testStartTime;
-        Long elapsedTimeS = elapsedTimeMS/ 1000;
-        Long elapsedTimeMin = elapsedTimeS / 60;
-        if (elapsedTimeMin >= 5) {
+        long elapsedTimeMS = SystemClock.uptimeMillis() - testStartTime;
+        long elapsedTimeS = elapsedTimeMS/ 1000;
+        long elapsedTimeMin = elapsedTimeS / 60;
+        if (elapsedTimeMin >= 3) {
             Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
             requireActivity().runOnUiThread(toggleButton::callOnClick);
         }
 
+    }
+
+    private String getRelativeTime(String currTime) {
+        String[] timeValues = currTime.split(":");
+        Long currTimeLong = Long.parseLong(timeValues[0]) * 3600 +
+                Long.parseLong(timeValues[1]) * 60 +
+                Long.parseLong(timeValues[2]) +
+                Long.parseLong(timeValues[3]) / 1000;
+        long relativeTime = currTimeLong - startTime;
+        return Long.toString(relativeTime);
     }
 
     @Override
