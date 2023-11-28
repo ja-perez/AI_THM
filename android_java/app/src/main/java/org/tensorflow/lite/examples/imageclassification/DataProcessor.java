@@ -21,15 +21,18 @@ public class DataProcessor {
 
     MainActivity mainActivity;
     String performanceFilePath;
+    String rawFilePath;
     SimpleDateFormat dateFormat;
     String fileSeries;
     String performanceFileName = "Performance_Measurements";
+    String rawDataFileName = "Raw_Data";
     String[] thermalZonePaths;
     String[] thermalZoneTypesOfInterest = {"cpu", "gpu", "npu"};
     StringBuilder thermalZoneTypeHeaders;
     String[] cpuDevicePaths;
     Boolean isRooted;
     String rootAccess;
+    long startTimeSecs;
 
     public DataProcessor(MainActivity activity) {
         mainActivity = activity;
@@ -47,8 +50,16 @@ public class DataProcessor {
 
         dateFormat = new SimpleDateFormat("HH:mm:ss");
         fileSeries = dateFormat.format(new Date());
+        String[] timeStampSplit = fileSeries.split(":");
+        startTimeSecs = Long.parseLong(timeStampSplit[0]) * 3600 +
+                Long.parseLong(timeStampSplit[1]) * 60 +
+                Long.parseLong(timeStampSplit[2]);
+
         String currentFolder = mainActivity.currentFolder;
-        performanceFilePath = currentFolder + File.separator + performanceFileName + fileSeries + ".csv";
+        performanceFilePath = currentFolder + File.separator +
+                performanceFileName + fileSeries + ".csv";
+        rawFilePath = currentFolder + File.separator +
+                rawDataFileName + fileSeries + ".csv";
 
         try {
             thermalZonePaths = getThermalZoneFilePaths("/sys/class/thermal");
@@ -73,6 +84,8 @@ public class DataProcessor {
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, false))) {
             String sb = "time" +
                     ',' +
+                    "relativeTime" +
+                    ',' +
                     "thermalStatus" +
                     ',' +
                     thermalZoneTypeHeaders +
@@ -86,6 +99,48 @@ public class DataProcessor {
                     '\n';
             writer.write(sb);
             System.out.println("Creating " + performanceFileName + " done!");
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+        }
+
+
+        // Create headers for raw data
+        StringBuilder thermalZoneTypes = new StringBuilder();
+        for (String currThermalZone: thermalZonePaths) {
+            try {
+                String currThermalZoneType = getThermalZoneType(currThermalZone);
+                thermalZoneTypes.append(currThermalZoneType).append(',');
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        StringBuilder cpuDevicesFreq = new StringBuilder();
+        String gpuDeviceFreq = "gpuFrequency,";
+        String cpuUtilization = "cpuUtilization,";
+        String gpuUtilization = "gpuUtilization,";
+        for (String currCPUDevice: cpuDevicePaths) {
+            String[] cpuPathSplit = currCPUDevice.split("/");
+            String currCPUDeviceName = cpuPathSplit[
+                    cpuPathSplit.length - 2];
+            cpuDevicesFreq.append(currCPUDeviceName).append("_freq,");
+        }
+        // Create file for raw data collection
+        String RAWFILEPATH = rawFilePath;
+        try (PrintWriter writer = new PrintWriter(new FileOutputStream(RAWFILEPATH, false))) {
+            String sb = "time" +
+                    ',' +
+                    "relativeTime" +
+                    ',' +
+                    "thermalStatus" +
+                    ',' +
+                    thermalZoneTypes +
+                    cpuDevicesFreq +
+                    gpuDeviceFreq +
+                    cpuUtilization +
+                    gpuUtilization +
+                    '\n';
+            writer.write(sb);
+            System.out.println("Creating " + rawDataFileName + " done!");
         } catch (FileNotFoundException e) {
             System.out.println(e.getMessage());
         }
@@ -118,8 +173,11 @@ public class DataProcessor {
 
         dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
         String currTime = dateFormat.format(new Date());
+        String relativeTime = Long.toString(getRelativeTime(currTime));
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
             String sb = currTime +
+                    ',' +
+                    relativeTime +
                     ',' +
                     currentThermalData.get(0) +
                     ',' +
@@ -139,6 +197,36 @@ public class DataProcessor {
                     '\n';
             writer.write(sb);
             System.out.println("Writing to " + performanceFileName + " done!");
+        } catch (FileNotFoundException | IndexOutOfBoundsException e) {
+            System.out.println(e.getMessage());
+        }
+
+
+        StringBuilder allCPUFreqs = new StringBuilder();
+        for (int i = 2; i < currentFrequencies.size(); i++) {
+            allCPUFreqs.append(currentFrequencies.get(i)).append(",");
+        }
+        StringBuilder allThermalData = new StringBuilder();
+        for (int i = 0; i < currentThermalData.size(); i++) {
+            allThermalData.append(currentThermalData.get(i)).append(",");
+        }
+
+        String RAWFILEPATH = rawFilePath;
+        try (PrintWriter writer = new PrintWriter(new FileOutputStream(RAWFILEPATH, true))) {
+            String sb = currTime +
+                    ',' +
+                    relativeTime +
+                    ',' +
+                    allThermalData +
+                    allCPUFreqs +
+                    currentFrequencies.get(1) +
+                    ',' +
+                    currentUtilizations.get(0) +
+                    ',' +
+                    currentUtilizations.get(1) +
+                    '\n';
+            writer.write(sb);
+            System.out.println("Writing to " + rawDataFileName + " done!");
         } catch (FileNotFoundException | IndexOutOfBoundsException e) {
             System.out.println(e.getMessage());
         }
@@ -188,15 +276,18 @@ public class DataProcessor {
 
     private ArrayList<Float> processFrequencyData() {
         /*
-        currentFrequencies = [cpuFrequency, gpuFrequency]
+        currentFrequencies = [cpuFrequency, gpuFrequency, cpuFrequencies]
          */
         ArrayList<Float> currentFrequencies = new ArrayList<>();
 
         // Get CPU frequencies
         Float avgCPUFreq = 0f, gpuFreq = 0f;
+        ArrayList<Float> cpuFreqs = new ArrayList<>();
         for (String cpuDevicePath: cpuDevicePaths) {
             try {
-                avgCPUFreq += getCPUFrequency(cpuDevicePath);
+                Float currCPUFreq = getCPUFrequency(cpuDevicePath);
+                cpuFreqs.add(currCPUFreq);
+                avgCPUFreq += currCPUFreq;
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -206,7 +297,6 @@ public class DataProcessor {
 
         // Get GPU Frequency
         try {
-
             if (isRooted) {
                 // For Pixel 8, ROOTED, the gpu frequency is stored in "/sys/class/misc/mali0/device/"
                 // in file "cur_freq"
@@ -216,11 +306,12 @@ public class DataProcessor {
                 // in file "cur_freq"
                 gpuFreq = getGPUFrequency("/sys/class/kgsl/kgsl-3d0", "clock_mhz");
             }
-
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         currentFrequencies.add(gpuFreq);
+
+        currentFrequencies.addAll(cpuFreqs);
 
         return currentFrequencies;
     }
@@ -238,42 +329,55 @@ public class DataProcessor {
         }
         currentThermalData.add(currentThermalStatus);
 
+        // Calculate Avg CPU, GPU, NPU, TPU temperatures
         Float avgCPUTemp = 0f, avgGPUTemp = 0f, avgNPUTemp = 0f, avgTPUTemp = 0f, currFileTemp = 0f;
         int cpuCount = 0, gpuCount = 0, npuCount = 0, tpuCount = 0;
         for (String zoneFilePath: thermalZonePaths) {
             currFileTemp = getThermalZoneTemp(zoneFilePath);
-            String currFileType = getThermalZoneType(zoneFilePath);
-            if (currFileType.contains("cpu")) {
-                avgCPUTemp += currFileTemp;
-                cpuCount++;
-            } else if (currFileType.contains("gpu")) {
-                avgGPUTemp += currFileTemp;
-                gpuCount++;
-            } else if (currFileType.contains("npu")) {
-                avgNPUTemp += currFileTemp;
-                npuCount++;
-            } else if (currFileType.contains("tpu")) {
-                avgTPUTemp += currFileTemp;
-                tpuCount++;
+            if (isRooted) {
+                currentThermalData.add(Float.toString(currFileTemp));
+            } else {
+                String currFileType = getThermalZoneType(zoneFilePath);
+                if (currFileType.contains("cpu")) {
+                    avgCPUTemp += currFileTemp;
+                    cpuCount++;
+                } else if (currFileType.contains("gpu")) {
+                    avgGPUTemp += currFileTemp;
+                    gpuCount++;
+                } else if (currFileType.contains("npu")) {
+                    avgNPUTemp += currFileTemp;
+                    npuCount++;
+                } else if (currFileType.contains("tpu")) {
+                    avgTPUTemp += currFileTemp;
+                    tpuCount++;
+                }
             }
         }
-        avgCPUTemp /= cpuCount;
-        avgGPUTemp /= gpuCount;
-        avgNPUTemp /= npuCount;
-        avgTPUTemp /= tpuCount;
-        String validZones = thermalZoneTypeHeaders.toString();
-        if (validZones.contains("cpu")) {
-            currentThermalData.add(Float.toString(avgCPUTemp));
+
+        // Get all raw temperatures for Pixel 8 and average temperatures for Note10+
+        if (isRooted) {
+            return currentThermalData;
+        } else {
+            avgCPUTemp /= cpuCount;
+            avgGPUTemp /= gpuCount;
+            avgNPUTemp /= npuCount;
+            avgTPUTemp /= tpuCount;
+
+            String validZones = thermalZoneTypeHeaders.toString();
+            if (validZones.contains("cpu")) {
+                currentThermalData.add(Float.toString(avgCPUTemp));
+            }
+            if (validZones.contains("gpu")) {
+                currentThermalData.add(Float.toString(avgGPUTemp));
+            }
+            if (validZones.contains("npu")) {
+                currentThermalData.add(Float.toString(avgNPUTemp));
+            }
+            if (validZones.contains("tpu")) {
+                currentThermalData.add(Float.toString(avgTPUTemp));
+            }
         }
-        if (validZones.contains("gpu")) {
-            currentThermalData.add(Float.toString(avgGPUTemp));
-        }
-        if (validZones.contains("npu")) {
-            currentThermalData.add(Float.toString(avgNPUTemp));
-        }
-        if (validZones.contains("tpu")) {
-            currentThermalData.add(Float.toString(avgTPUTemp));
-        }
+
 
         return currentThermalData;
     }
@@ -290,14 +394,8 @@ public class DataProcessor {
         ArrayList<String> thermalZonePaths = new ArrayList<>();
         while ((currFileName = reader.readLine()) != null) {
             String thermalZoneFilePath = thermalDir + "/" + currFileName + "/";
-            String thermalZoneType = getThermalZoneType(thermalZoneFilePath).toLowerCase();
-            // Filter thermal zones to only track cpu, gpu, and npu
-            for (String thermalZoneTypeOfInterest: thermalZoneTypesOfInterest) {
-                if (thermalZoneType.contains(thermalZoneTypeOfInterest)) {
-                    thermalZonePaths.add(thermalZoneFilePath);
-                    break;
-                }
-            }
+            // Get all thermal zones and filter later
+            thermalZonePaths.add(thermalZoneFilePath);
         }
 
         reader.close();
@@ -416,5 +514,13 @@ public class DataProcessor {
             return Float.parseFloat(currentGPUUtilization);
         }
         return (float) 0;
+    }
+
+    private Long getRelativeTime(String currTime) {
+        String[] timeStampSplit = currTime.split(":");
+        long currTimeSecs = Long.parseLong(timeStampSplit[0]) * 3600 +
+                Long.parseLong(timeStampSplit[1]) * 60 +
+                Long.parseLong(timeStampSplit[2]);
+        return currTimeSecs - startTimeSecs;
     }
 }

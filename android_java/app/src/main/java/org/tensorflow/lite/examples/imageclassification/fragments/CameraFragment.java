@@ -581,7 +581,7 @@ public class CameraFragment extends Fragment
     @Override
     public void onResults(List<? extends Classifications> results, long inferenceTime, int modelIndex) {
         requireActivity().runOnUiThread(() -> {
-            if (modelIndex == 0) {
+            if (modelIndex == 0 & results != null) {
                 classificationResultsAdapter.updateResults(results.get(0).getCategories());
                 fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal
                         .setText(String.format(Locale.US, "%d ms", inferenceTime));
