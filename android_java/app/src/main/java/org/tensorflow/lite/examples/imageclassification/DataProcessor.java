@@ -38,6 +38,7 @@ public class DataProcessor {
         mainActivity = activity;
 
         isRooted = true;
+        rootAccess = "";
 
         dateFormat = new SimpleDateFormat("HH:mm:ss");
         fileSeries = dateFormat.format(new Date());

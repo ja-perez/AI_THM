@@ -26,6 +26,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.camera.core.AspectRatio;
@@ -38,6 +39,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
+
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.FileNotFoundException;
@@ -54,12 +56,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.io.File;
+
 import org.tensorflow.lite.examples.imageclassification.ImageClassifierHelperKotlin;
 import org.tensorflow.lite.examples.imageclassification.R;
 import org.tensorflow.lite.examples.imageclassification.databinding.FragmentCameraBinding;
 import org.tensorflow.lite.task.vision.classifier.Classifications;
 
-/** Fragment for displaying and controlling the device camera and other UI */
+/**
+ * Fragment for displaying and controlling the device camera and other UI
+ */
 public class CameraFragment extends Fragment
         implements ImageClassifierHelperKotlin.ClassifierListener {
     private static final String TAG = "Image Classifier";
@@ -354,7 +359,7 @@ public class CameraFragment extends Fragment
                     updateControlsUi();
                 });
 
-        // When clicked, configure all test models and begin classification
+        // When clicked, configure all test models
         fragmentCameraBinding.bottomSheetLayout.testToggleButton
                 .setOnClickListener(view -> {
                     testStatus = !testStatus;
@@ -363,6 +368,28 @@ public class CameraFragment extends Fragment
                             currClassifier.clearImageClassifier();
                         }
                         imageClassifierHelpers.clear();
+                    } else {
+                        for (int i = 0; i < 6; i++) {
+                            ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+                                    requireContext(),
+                                    this,
+                                    source,
+                                    1 + i);
+                            currClassifier.setCurrentModel(0);
+                            currClassifier.setCurrentPeriod(8);
+                            imageClassifierHelpers.add(currClassifier);
+                        }
+//                        for (int i = 0; i < 2; i++) {
+//                            ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+//                                    requireContext(),
+//                                    this,
+//                                    source,
+//                                    3 + i);
+//                            currClassifier.setCurrentModel(2);
+//                            currClassifier.setCurrentPeriod(6);
+//                            imageClassifierHelpers.add(currClassifier);
+//                        }
+
                     }
                     updateControlsUi();
                 });
@@ -490,27 +517,27 @@ public class CameraFragment extends Fragment
     private void configureImageClassifiers() {
         imageClassifierHelpers.clear();
         imageClassifierHelpers.add(imageClassifierHelper);
-        if (testStatus) {
-            for (int i = 0; i < 2; i++) {
-                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-                        requireContext(),
-                        this,
-                        source,
-                        1 + i);
-                currClassifier.setCurrentModel(1);
-                currClassifier.setCurrentPeriod(5);
-                imageClassifierHelpers.add(currClassifier);
-            }
-            for (int i = 0; i < 2; i++) {
-                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-                        requireContext(),
-                        this,
-                        source,
-                        3+i);
-                currClassifier.setCurrentModel(2);
-                currClassifier.setCurrentPeriod(6);
-                imageClassifierHelpers.add(currClassifier);
-            }
+//        if (testStatus) {
+//            for (int i = 0; i < 2; i++) {
+//                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+//                        requireContext(),
+//                        this,
+//                        source,
+//                        1 + i);
+//                currClassifier.setCurrentModel(1);
+//                currClassifier.setCurrentPeriod(5);
+//                imageClassifierHelpers.add(currClassifier);
+//            }
+//            for (int i = 0; i < 2; i++) {
+//                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+//                        requireContext(),
+//                        this,
+//                        source,
+//                        3+i);
+//                currClassifier.setCurrentModel(2);
+//                currClassifier.setCurrentPeriod(6);
+//                imageClassifierHelpers.add(currClassifier);
+//            }
 //             ImageClassifierHelperKotlin classifier0 = new ImageClassifierHelperKotlin(
 //                    requireContext(),
 //                    this,
@@ -528,7 +555,8 @@ public class CameraFragment extends Fragment
 //            classifier1.setCurrentModel(2);
 //            classifier1.setCurrentPeriod(6);
 //            imageClassifierHelpers.add(classifier1);
-        }
+//    }
+
     }
 
     private void runImageClassifiers() {
@@ -564,7 +592,7 @@ public class CameraFragment extends Fragment
                 .getExternalFilesDir(null)).getAbsolutePath();
         String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
 
-        for (ImageClassifierHelperKotlin currClassifier: imageClassifierHelpers) {
+        for (ImageClassifierHelperKotlin currClassifier : imageClassifierHelpers) {
             long throughput = currClassifier.calculateThroughput();
             long inferenceTime = currClassifier.calcAvgInferenceTime();
             long turnAroundTime = currClassifier.calculateAvgTAT();
@@ -599,7 +627,7 @@ public class CameraFragment extends Fragment
         }
 
         long elapsedTimeMS = SystemClock.uptimeMillis() - testStartTime;
-        long elapsedTimeS = elapsedTimeMS/ 1000;
+        long elapsedTimeS = elapsedTimeMS / 1000;
         long elapsedTimeMin = elapsedTimeS / 60;
         if (elapsedTimeMin >= 3) {
             Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
