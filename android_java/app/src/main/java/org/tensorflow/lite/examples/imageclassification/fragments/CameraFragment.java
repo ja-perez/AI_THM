@@ -182,6 +182,8 @@ public class CameraFragment extends Fragment
                     ',' +
                     "relativeTime" +
                     ',' +
+                    "modelIndex" +
+                    ',' +
                     "model" +
                     ',' +
                     "delegate" +
@@ -612,6 +614,8 @@ public class CameraFragment extends Fragment
                         ',' +
                         relativeTime +
                         ',' +
+                        currClassifier.getIndex() +
+                        ',' +
                         currClassifier.getCurrentModel() +
                         ',' +
                         currClassifier.getCurrentDelegate() +
@@ -637,7 +641,7 @@ public class CameraFragment extends Fragment
         long elapsedTimeS = elapsedTimeMS / 1000;
         long elapsedTimeMin = elapsedTimeS / 60;
 
-        if (elapsedTimeMin > 3) {
+        if (elapsedTimeMin > 5) {
             Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
             requireActivity().runOnUiThread(toggleButton::callOnClick);
         }
