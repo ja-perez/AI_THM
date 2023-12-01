@@ -71,6 +71,10 @@ class ImageClassifierHelperKotlin(
         this.currentDelegate = currentDelegate
     }
 
+    fun getCurrentDelegateNum(): Int {
+        return currentDelegate
+    }
+
     fun getCurrentDelegate(): String {
         return delegateName
     }
@@ -113,7 +117,7 @@ class ImageClassifierHelperKotlin(
         )
         when (currentDelegate) {
             DELEGATE_CPU -> {}
-            DELEGATE_GPU -> if (CompatibilityList().isDelegateSupportedOnThisDevice) {
+            DELEGATE_GPU -> if (true) { // (CompatibilityList().isDelegateSupportedOnThisDevice) {
                 baseOptionsBuilder.useGpu()
             } else {
                 imageClassifierListener?.onError(

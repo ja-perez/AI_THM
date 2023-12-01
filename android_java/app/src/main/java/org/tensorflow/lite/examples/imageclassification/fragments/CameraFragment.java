@@ -502,16 +502,74 @@ public class CameraFragment extends Fragment
         imageClassifierHelpers.clear();
         imageClassifierHelpers.add(imageClassifierHelper);
         if (testStatus) {
-            for (int i = 0; i < 2; i++) {
-                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-                        requireContext(),
-                        this,
-                        source,
-                        1 + i);
-                currClassifier.setCurrentModel(0);
-                currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
-                imageClassifierHelpers.add(currClassifier);
-            }
+//            for (int i = 0; i < 2; i++) {
+//                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+//                        requireContext(),
+//                        this,
+//                        source,
+//                        1 + i);
+//                currClassifier.setCurrentDelegate(imageClassifierHelper.getCurrentDelegateNum());
+//                currClassifier.setCurrentModel(0);
+//                currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
+//                imageClassifierHelpers.add(currClassifier);
+//            }
+
+            // 3 - 5 - 7 = 30ms 40ms 50ms
+            // 0 - 1 - 2 = cpu, gpu, npu
+            // 0 - 1 - 2 = mobilenet, efficientnet0, efficientnet1
+            // Test 1a:
+            //        model 1 : mobilenet, cpu, 30ms
+            //        model 2 : efficientnet0, gpu, 40ms
+            //        model 3 : efficientnet1, npu, 50ms
+            // Test 1b:
+            //        model 1 : mobilenet, cpu, 50ms
+            //        model 2 : efficientnet0, gpu, 30ms
+            //        model 3 : efficientnet1, npu, 40ms
+            // Test 1c:
+            //        model 1 : mobilenet, cpu, 40ms
+            //        model 2 : efficientnet0, gpu, 50ms
+            //        model 3 : efficientnet1, npu, 30ms
+
+            // Test 2a:
+            //        model 1 : mobilenet, cpu, 30ms
+            //        model 2 : efficientnet0, gpu, 30ms
+            //        model 3 : efficientnet1, gpu, 30ms
+            // Test 2b:
+            //        model 1 : mobilenet, cpu, 40ms
+            //        model 2 : efficientnet0, npu, 40ms
+            //        model 3 : efficientnet1, npu, 40ms
+
+            ImageClassifierHelperKotlin classifier1 = new ImageClassifierHelperKotlin(
+                    requireContext(),
+                    this,
+                    source,
+                    1);
+            ImageClassifierHelperKotlin classifier2 = new ImageClassifierHelperKotlin(
+                    requireContext(),
+                    this,
+                    source,
+                    2);
+//            ImageClassifierHelperKotlin classifier3 = new ImageClassifierHelperKotlin(
+//                    requireContext(),
+//                    this,
+//                    source,
+//                    3);
+//
+
+            classifier1.setCurrentDelegate(1);
+            classifier1.setCurrentModel(1);
+            classifier1.setCurrentPeriod(5);
+
+            classifier2.setCurrentDelegate(2);
+            classifier2.setCurrentModel(2);
+            classifier2.setCurrentPeriod(7);
+
+//            classifier3.setCurrentDelegate(imageClassifierHelper.getCurrentDelegateNum());
+//            classifier3.setCurrentModel(0);
+//            classifier3.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
+
+            imageClassifierHelpers.add(classifier1);
+            imageClassifierHelpers.add(classifier2);
         }
 
     }
@@ -582,7 +640,7 @@ public class CameraFragment extends Fragment
                         period +
                         '\n';
                 writer.write(sb);
-                System.out.println("Writing to " + throughputFileName + " done!");
+                System.out.println("Writing to " + throughputFileName + " done! Models: " + imageClassifierHelpers.size());
             } catch (FileNotFoundException e) {
                 System.out.println(e.getMessage());
             }
@@ -592,7 +650,7 @@ public class CameraFragment extends Fragment
         long elapsedTimeS = elapsedTimeMS / 1000;
         long elapsedTimeMin = elapsedTimeS / 60;
 
-        if (elapsedTimeMin > 5) {
+        if (elapsedTimeMin > 4) {
             Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
             requireActivity().runOnUiThread(toggleButton::callOnClick);
         }
