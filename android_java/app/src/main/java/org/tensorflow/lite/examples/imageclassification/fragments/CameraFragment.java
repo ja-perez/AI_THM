@@ -554,7 +554,7 @@ public class CameraFragment extends Fragment
             long inferenceTime = currClassifier.calcAvgInferenceTime();
             long turnAroundTime = currClassifier.calculateAvgTAT();
             long period = currClassifier.getTaskPeriod();
-            long idleTime = max(0,turnAroundTime - period);
+            long idleTime = max(0, period - turnAroundTime);
 
             // Write throughput to file
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
