@@ -555,13 +555,16 @@ public class CameraFragment extends Fragment
 //                    source,
 //                    3);
 //
+            int mainICDelegate = imageClassifierHelper.getCurrentDelegateNum();
+            int mainICPeriod = imageClassifierHelper.getCurrentTaskPeriod();
+            String mainICDelegateName = imageClassifierHelper.getCurrentModel();
 
-            classifier1.setCurrentDelegate(1);
-            classifier1.setCurrentModel(1);
-            classifier1.setCurrentPeriod(5);
+            classifier1.setCurrentDelegate(0);
+            classifier1.setCurrentModel(0);
+            classifier1.setCurrentPeriod(7);
 
-            classifier2.setCurrentDelegate(2);
-            classifier2.setCurrentModel(2);
+            classifier2.setCurrentDelegate(0);
+            classifier2.setCurrentModel(0);
             classifier2.setCurrentPeriod(7);
 
 //            classifier3.setCurrentDelegate(imageClassifierHelper.getCurrentDelegateNum());
