@@ -27,7 +27,7 @@ public class DataProcessor {
     String performanceFileName = "Performance_Measurements";
     String rawDataFileName = "Raw_Data";
     String[] thermalZonePaths;
-    String[] thermalZoneTypesOfInterest = {"cpu", "gpu", "npu"};
+    String[] thermalZoneTypesOfInterest = {"BIG", "MID", "LITTLE", "TPU", "G3D"};
     StringBuilder thermalZoneTypeHeaders;
     String[] cpuDevicePaths;
     Boolean isRooted;
@@ -159,9 +159,14 @@ public class DataProcessor {
     public void processDataCollection() throws IOException {
         String FILEPATH = performanceFilePath;
 
-        ArrayList<String> currentThermalData = processThermalData();
+        ArrayList<String> currentThermalData = processThermalData(false);
         ArrayList<Float> currentFrequencies = processFrequencyData();
         ArrayList<String> currentUtilizations = processUtilizationData();
+
+        StringBuilder allThermalDataOfInterest = new StringBuilder();
+        for (int i = 0; i < currentThermalData.size(); i++) {
+            allThermalDataOfInterest.append(currentThermalData.get(i)).append(",");
+        }
 
         dateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
         String currTime = dateFormat.format(new Date());
@@ -171,14 +176,7 @@ public class DataProcessor {
                     ',' +
                     relativeTime +
                     ',' +
-                    currentThermalData.get(0) +
-                    ',' +
-                    currentThermalData.get(1) +
-                    ',' +
-                    currentThermalData.get(2) +
-                    ',' +
-                    currentThermalData.get(3) +
-                    ',' +
+                    allThermalDataOfInterest +
                     currentFrequencies.get(0) +
                     ',' +
                     currentFrequencies.get(1) +
@@ -193,11 +191,12 @@ public class DataProcessor {
             System.out.println(e.getMessage());
         }
 
-
         StringBuilder allCPUFreqs = new StringBuilder();
         for (int i = 2; i < currentFrequencies.size(); i++) {
             allCPUFreqs.append(currentFrequencies.get(i)).append(",");
         }
+
+        currentThermalData = processThermalData(true);
         StringBuilder allThermalData = new StringBuilder();
         for (int i = 0; i < currentThermalData.size(); i++) {
             allThermalData.append(currentThermalData.get(i)).append(",");
@@ -308,9 +307,10 @@ public class DataProcessor {
         return currentFrequencies;
     }
 
-    private ArrayList<String> processThermalData() throws IOException {
+    private ArrayList<String> processThermalData(Boolean isRaw) throws IOException {
         /*
         currentThermalData = [thermalStatus, cpuTemperature, gpuTemperature, npuTemperature, tpuTemperature]
+        currentThermalData = [thermalStatus, devicesOfInterestTemperatures
          */
 
         ArrayList<String> currentThermalData= new ArrayList<>();
@@ -330,46 +330,15 @@ public class DataProcessor {
                 currentThermalData.add(Float.toString(currFileTemp));
             } else {
                 String currFileType = getThermalZoneType(zoneFilePath);
-                if (currFileType.contains("cpu")) {
-                    avgCPUTemp += currFileTemp;
-                    cpuCount++;
-                } else if (currFileType.contains("gpu")) {
-                    avgGPUTemp += currFileTemp;
-                    gpuCount++;
-                } else if (currFileType.contains("npu")) {
-                    avgNPUTemp += currFileTemp;
-                    npuCount++;
-                } else if (currFileType.contains("tpu")) {
-                    avgTPUTemp += currFileTemp;
-                    tpuCount++;
+                for (String thermalZoneType: thermalZoneTypesOfInterest) {
+                    if (currFileType.contains(thermalZoneType)) {
+                        currentThermalData.add(Float.toString(currFileTemp));
+                        // break out of for loop
+                        break;
+                    }
                 }
             }
         }
-
-        // Get all raw temperatures for Pixel 8 and average temperatures for Note10+
-        if (isRooted) {
-            return currentThermalData;
-        } else {
-            avgCPUTemp /= cpuCount;
-            avgGPUTemp /= gpuCount;
-            avgNPUTemp /= npuCount;
-            avgTPUTemp /= tpuCount;
-
-            String validZones = thermalZoneTypeHeaders.toString();
-            if (validZones.contains("cpu")) {
-                currentThermalData.add(Float.toString(avgCPUTemp));
-            }
-            if (validZones.contains("gpu")) {
-                currentThermalData.add(Float.toString(avgGPUTemp));
-            }
-            if (validZones.contains("npu")) {
-                currentThermalData.add(Float.toString(avgNPUTemp));
-            }
-            if (validZones.contains("tpu")) {
-                currentThermalData.add(Float.toString(avgTPUTemp));
-            }
-        }
-
 
         return currentThermalData;
     }
