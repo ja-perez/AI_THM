@@ -374,28 +374,6 @@ public class CameraFragment extends Fragment
                             currClassifier.clearImageClassifier();
                         }
                         imageClassifierHelpers.clear();
-                    } else {
-                        for (int i = 0; i < 6; i++) {
-                            ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-                                    requireContext(),
-                                    this,
-                                    source,
-                                    1 + i);
-                            currClassifier.setCurrentModel(0);
-                            currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
-                            imageClassifierHelpers.add(currClassifier);
-                        }
-//                        for (int i = 0; i < 2; i++) {
-//                            ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-//                                    requireContext(),
-//                                    this,
-//                                    source,
-//                                    3 + i);
-//                            currClassifier.setCurrentModel(2);
-//                            currClassifier.setCurrentPeriod(6);
-//                            imageClassifierHelpers.add(currClassifier);
-//                        }
-
                     }
                     updateControlsUi();
                 });
@@ -523,45 +501,18 @@ public class CameraFragment extends Fragment
     private void configureImageClassifiers() {
         imageClassifierHelpers.clear();
         imageClassifierHelpers.add(imageClassifierHelper);
-//        if (testStatus) {
-//            for (int i = 0; i < 2; i++) {
-//                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-//                        requireContext(),
-//                        this,
-//                        source,
-//                        1 + i);
-//                currClassifier.setCurrentModel(1);
-//                currClassifier.setCurrentPeriod(5);
-//                imageClassifierHelpers.add(currClassifier);
-//            }
-//            for (int i = 0; i < 2; i++) {
-//                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
-//                        requireContext(),
-//                        this,
-//                        source,
-//                        3+i);
-//                currClassifier.setCurrentModel(2);
-//                currClassifier.setCurrentPeriod(6);
-//                imageClassifierHelpers.add(currClassifier);
-//            }
-//             ImageClassifierHelperKotlin classifier0 = new ImageClassifierHelperKotlin(
-//                    requireContext(),
-//                    this,
-//                    source,
-//                    1);
-//            classifier0.setCurrentModel(1);
-//            classifier0.setCurrentPeriod(5);
-//            imageClassifierHelpers.add(classifier0);
-
-//            ImageClassifierHelperKotlin classifier1 = new ImageClassifierHelperKotlin(
-//                    requireContext(),
-//                    this,
-//                    source,
-//                    2);
-//            classifier1.setCurrentModel(2);
-//            classifier1.setCurrentPeriod(6);
-//            imageClassifierHelpers.add(classifier1);
-//    }
+        if (testStatus) {
+            for (int i = 0; i < 2; i++) {
+                ImageClassifierHelperKotlin currClassifier = new ImageClassifierHelperKotlin(
+                        requireContext(),
+                        this,
+                        source,
+                        1 + i);
+                currClassifier.setCurrentModel(0);
+                currClassifier.setCurrentPeriod(imageClassifierHelper.getCurrentTaskPeriod());
+                imageClassifierHelpers.add(currClassifier);
+            }
+        }
 
     }
 
