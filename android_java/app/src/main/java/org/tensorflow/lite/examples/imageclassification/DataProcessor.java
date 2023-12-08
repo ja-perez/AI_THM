@@ -219,6 +219,12 @@ public class DataProcessor {
             allThermalData.append(currentThermalData.get(i)).append(",");
         }
 
+        StringBuilder formattedPolicyData = new StringBuilder();
+        for (Long policyData: currentPolicyTimes) {
+            formattedPolicyData.append(policyData).append(',');
+        }
+        formattedPolicyData.deleteCharAt(formattedPolicyData.length() - 1);
+
         String RAWFILEPATH = rawFilePath;
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(RAWFILEPATH, true))) {
             String sb = currTime +
@@ -232,6 +238,8 @@ public class DataProcessor {
                     currentUtilizations.get(0) +
                     ',' +
                     currentUtilizations.get(1) +
+                    ',' +
+                    formattedPolicyData +
                     '\n';
             writer.write(sb);
             System.out.println("Writing to " + rawDataFileName + " done!");
@@ -360,7 +368,7 @@ public class DataProcessor {
         return currentThermalData;
     }
 
-    private ArrayList<Long> processPolicyData() throws IOException {
+    private ArrayList<Long> processPolicyData() {
         /*
         currentPolicyTimes = [cpuLittlePolicyTime, cpuMidPolicyTime, cpuBigPolicyTime]
          */
@@ -384,6 +392,7 @@ public class DataProcessor {
 
         ArrayList<Long> updatedTimes = new ArrayList<>();
         for (int i = 0; i < freqTimes.size(); i++) {
+            if (freqTimes.get(i) == -1) updatedTimes.add(freqTimes.get(i));
             updatedTimes.add(freqTimes.get(i) - initialFreqTimes.get(i));
         }
 
@@ -474,7 +483,8 @@ public class DataProcessor {
             initialFreqTimes.add(Long.parseLong(currTime));
             cpuPolicyHeaders.append(currFreq).append(',');
         }
-        cpuPolicyHeaders.append(policyType);
+        initialFreqTimes.add(-1L);
+        cpuPolicyHeaders.append(policyType).append(',');
         reader.close();
         process.waitFor();
         return cpuPolicyHeaders.toString();

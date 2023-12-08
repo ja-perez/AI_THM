@@ -215,7 +215,9 @@ class ImageClassifierHelperKotlin(
 
         totalMeasuredPeriod += measuredPeriod
         totalTurnAroundTime += turnAroundTime
-        currentThroughput = 1 / (measuredPeriod) * 1000
+        if (measuredPeriod == 0L) currentThroughput = 0;
+        else currentThroughput = 1000 / measuredPeriod
+        totalThroughputTime += currentThroughput
 
         imageClassifierListener?.onResults(result, turnAroundTime, index)
     }
