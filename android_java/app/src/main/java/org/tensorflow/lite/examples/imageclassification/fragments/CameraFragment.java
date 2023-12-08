@@ -18,6 +18,7 @@ package org.tensorflow.lite.examples.imageclassification.fragments;
 import static java.lang.Math.max;
 
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -49,6 +50,7 @@ import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -90,6 +92,7 @@ public class CameraFragment extends Fragment
     private Timer t;
     private Long startTime;
     private Long testStartTime;
+    private List<String> periodOptions;
 
     /**
      * Blocking camera operations are performed using this executor
@@ -137,6 +140,10 @@ public class CameraFragment extends Fragment
         super.onViewCreated(view, savedInstanceState);
         cameraExecutor = Executors.newSingleThreadExecutor();
 
+        // Get resources
+        Resources res = getResources();
+        periodOptions = Arrays.asList(res.getStringArray(R.array.period_spinner_options));
+
         // Set up BitmapUpdaterApi
         bitmapUpdaterApi = new BitmapUpdaterApi();
 
@@ -147,7 +154,8 @@ public class CameraFragment extends Fragment
                 requireContext(),
                 this,
                 source,
-                0);
+                0,
+                periodOptions);
         imageClassifierHelpers = new ArrayList<>();
         imageClassifierHelpers.add(imageClassifierHelper);
 
@@ -195,6 +203,8 @@ public class CameraFragment extends Fragment
                     "turnAroundTime" +
                     ',' +
                     "idleTime" +
+                    ',' +
+                    "avgMeasuredPeriod" +
                     ',' +
                     "measuredPeriod" +
                     ',' +
@@ -545,12 +555,14 @@ public class CameraFragment extends Fragment
                     requireContext(),
                     this,
                     source,
-                    1);
+                    1,
+                    periodOptions);
             ImageClassifierHelperKotlin classifier2 = new ImageClassifierHelperKotlin(
                     requireContext(),
                     this,
                     source,
-                    2);
+                    2,
+                    periodOptions);
 //            ImageClassifierHelperKotlin classifier3 = new ImageClassifierHelperKotlin(
 //                    requireContext(),
 //                    this,
@@ -561,13 +573,13 @@ public class CameraFragment extends Fragment
             int mainICPeriod = imageClassifierHelper.getCurrentTaskPeriod();
             String mainICDelegateName = imageClassifierHelper.getCurrentModel();
 
-            classifier1.setCurrentDelegate(0);
-            classifier1.setCurrentModel(0);
-            classifier1.setCurrentPeriod(7);
+            classifier1.setCurrentDelegate(2);
+            classifier1.setCurrentModel(1);
+            classifier1.setCurrentPeriod(10);
 
-            classifier2.setCurrentDelegate(0);
-            classifier2.setCurrentModel(0);
-            classifier2.setCurrentPeriod(7);
+            classifier2.setCurrentDelegate(2);
+            classifier2.setCurrentModel(2);
+            classifier2.setCurrentPeriod(10);
 
 //            classifier3.setCurrentDelegate(imageClassifierHelper.getCurrentDelegateNum());
 //            classifier3.setCurrentModel(0);
@@ -617,6 +629,7 @@ public class CameraFragment extends Fragment
             long avgThroughput = currClassifier.calculateAverageThroughput();
             long turnAroundTime = currClassifier.calculateAvgTAT();
             long period = currClassifier.getTaskPeriod();
+            long averageMeasuredPeriod = currClassifier.getAvgMeasuredPeriod();
             long measuredPeriod = currClassifier.getMeasuredPeriod();
             long idleTime = max(0, measuredPeriod - turnAroundTime);
 
@@ -642,6 +655,8 @@ public class CameraFragment extends Fragment
                         turnAroundTime +
                         ',' +
                         idleTime +
+                        ',' +
+                        averageMeasuredPeriod +
                         ',' +
                         measuredPeriod +
                         ',' +

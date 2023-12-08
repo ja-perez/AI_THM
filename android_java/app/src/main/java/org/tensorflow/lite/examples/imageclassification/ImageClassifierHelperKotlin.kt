@@ -42,7 +42,8 @@ class ImageClassifierHelperKotlin(
     private val context: Context,
     private val imageClassifierListener: ClassifierListener?,
     private val bitmapSource: DynamicBitmapSource?,
-    private val index: Int
+    private val index: Int,
+    private val periodOptions: List<String>
 ) : ViewModel() {
     var threshold: Float = 0.5f
     var numThreads: Int = 2
@@ -50,6 +51,7 @@ class ImageClassifierHelperKotlin(
     private var currentDelegate: Int = 0
     private var currentModel: Int = 0
     private var currentThroughput: Long = 0
+    private var measuredPeriod: Long = 0
     var currentTaskPeriod: Int = 0
     var taskPeriod: Long = 0
     private var run = false
@@ -107,6 +109,9 @@ class ImageClassifierHelperKotlin(
     }
 
     fun getMeasuredPeriod(): Long {
+        return measuredPeriod
+    }
+    fun getAvgMeasuredPeriod(): Long {
         return totalMeasuredPeriod / max(1, executionCount)
     }
     
@@ -206,7 +211,7 @@ class ImageClassifierHelperKotlin(
         executionCount++
 
         val timeLeftInPeriod = taskPeriod - turnAroundTime
-        val measuredPeriod = if (timeLeftInPeriod >= 0) taskPeriod else turnAroundTime
+        measuredPeriod = if (timeLeftInPeriod >= 0) taskPeriod else turnAroundTime
         if (timeLeftInPeriod > 0) {
             runBlocking {
                 delay(timeLeftInPeriod)
@@ -215,8 +220,8 @@ class ImageClassifierHelperKotlin(
 
         totalMeasuredPeriod += measuredPeriod
         totalTurnAroundTime += turnAroundTime
-        if (measuredPeriod == 0L) currentThroughput = 0;
-        else currentThroughput = 1000 / measuredPeriod
+        currentThroughput = if (measuredPeriod == 0L) 0;
+        else 1000 / measuredPeriod
         totalThroughputTime += currentThroughput
 
         imageClassifierListener?.onResults(result, turnAroundTime, index)
@@ -257,22 +262,8 @@ class ImageClassifierHelperKotlin(
 
     private val periodOption: Long
         get() {
-            var taskPeriodOption = 0L
-            when (currentTaskPeriod) {
-                0 -> taskPeriodOption = 0L
-                1 -> taskPeriodOption = 20L
-                2 -> taskPeriodOption = 25L
-                3 -> taskPeriodOption = 30L
-                4 -> taskPeriodOption = 35L
-                5 -> taskPeriodOption = 40L
-                6 -> taskPeriodOption = 45L
-                7 -> taskPeriodOption = 50L
-                8 -> taskPeriodOption = 100L
-                9 -> taskPeriodOption = 200L
-                10 -> taskPeriodOption = 250L
-                else -> taskPeriodOption = 0L
-            }
-            return taskPeriodOption
+            val currPeriodOption = periodOptions[currentTaskPeriod]
+            return currPeriodOption.toLong()
         }
 
     companion object {
