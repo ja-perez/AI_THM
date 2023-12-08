@@ -27,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.tensorflow.lite.examples.imageclassification.fragments.DynamicBitmapSource
-import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.Rot90Op
@@ -50,16 +49,15 @@ class ImageClassifierHelperKotlin(
     var maxResults: Int = 3
     private var currentDelegate: Int = 0
     private var currentModel: Int = 0
+    private var currentThroughput: Long = 0
     var currentTaskPeriod: Int = 0
     var taskPeriod: Long = 0
     private var run = false
     private var job: Job? = null
-    private var inferenceTime: Long = 0
-    private var endTime: Long = 0
-    private var totalInferenceTime: Long = 0
-    private var totalQueueTime: Long = 0
+    private var totalTurnAroundTime: Long = 0
+    private var totalThroughputTime: Long = 0
+    private var totalMeasuredPeriod: Long = 0
     private var executionCount = 0
-    private var totalExecutionTime: Long = 1
     private var imageClassifier: ImageClassifier? = null
 
     /** Helper class for wrapping Image Classification actions  */
@@ -96,16 +94,20 @@ class ImageClassifierHelperKotlin(
         return index
     }
 
-    fun calculateThroughput(): Long {
-        return executionCount / max(1, (totalExecutionTime / 1000));
+    fun calculateAverageThroughput(): Long {
+        return totalThroughputTime / max(1, executionCount);
     }
 
-    fun calcAvgInferenceTime(): Long {
-        return totalInferenceTime / max(1, executionCount)
+    fun getCurrentThroughput(): Long {
+        return currentThroughput
     }
 
     fun calculateAvgTAT(): Long {
-        return ((totalQueueTime + totalInferenceTime) / max(1, (executionCount)))
+        return (totalTurnAroundTime / max(1, (executionCount)))
+    }
+
+    fun getMeasuredPeriod(): Long {
+        return totalMeasuredPeriod / max(1, executionCount)
     }
     
     private fun setupImageClassifier() {
@@ -125,7 +127,6 @@ class ImageClassifierHelperKotlin(
                             + "this device"
                 )
             }
-
             DELEGATE_NNAPI -> baseOptionsBuilder.useNnapi()
         }
 
@@ -152,9 +153,8 @@ class ImageClassifierHelperKotlin(
     }
 
     private fun resetRtData() {
-        totalExecutionTime = 0
         executionCount = 0
-        inferenceTime = SystemClock.uptimeMillis()
+        currentThroughput = 0
     }
 
     fun startCollect() = runBlocking <Unit>{
@@ -187,14 +187,6 @@ class ImageClassifierHelperKotlin(
             setupImageClassifier()
         }
 
-        // Inference time is the difference between the system time at the start
-        // and finish of the process
-        val startTime = SystemClock.uptimeMillis()
-        var queueTime = 0L
-        if (endTime != 0L) {
-            queueTime = max(0, startTime - endTime)
-        }
-
         // Create preprocessor for the image.
         // See https://www.tensorflow.org/lite/inference_with_metadata/
         //            lite_support#imageprocessor_architecture
@@ -203,26 +195,29 @@ class ImageClassifierHelperKotlin(
         // Preprocess the image and convert it into a TensorImage for classification.
         val tensorImage = imageProcessor.process(TensorImage.fromBitmap(image))
 
+        // Inference time is the difference between the system time at the start
+        // and finish of the process
+        val startTime = SystemClock.uptimeMillis()
         // Classify the input image
         val result = imageClassifier?.classify(tensorImage)
-        inferenceTime = SystemClock.uptimeMillis() - startTime
-        totalInferenceTime += inferenceTime
-        totalQueueTime += queueTime
+        // Calculate the turn around time: Made up of queue time + inference time
+        val turnAroundTime = SystemClock.uptimeMillis() - startTime
+        // Increment the total inferences executed
         executionCount++
 
-        val timeLeftInPeriod = taskPeriod - inferenceTime
+        val timeLeftInPeriod = taskPeriod - turnAroundTime
+        val measuredPeriod = if (timeLeftInPeriod >= 0) taskPeriod else turnAroundTime
         if (timeLeftInPeriod > 0) {
-            totalExecutionTime += taskPeriod
             runBlocking {
                 delay(timeLeftInPeriod)
             }
-        } else {
-            totalExecutionTime += inferenceTime + queueTime
         }
 
-        endTime = SystemClock.uptimeMillis()
+        totalMeasuredPeriod += measuredPeriod
+        totalTurnAroundTime += turnAroundTime
+        currentThroughput = 1 / (measuredPeriod) * 1000
 
-        imageClassifierListener?.onResults(result, inferenceTime, index)
+        imageClassifierListener?.onResults(result, turnAroundTime, index)
     }
 
     fun clearImageClassifier() {
@@ -246,6 +241,7 @@ class ImageClassifierHelperKotlin(
             }
             return modelName
         }
+
     private val delegateName: String
         get() {
             var currDelegateName = "unknown"

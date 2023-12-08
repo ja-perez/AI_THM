@@ -30,6 +30,7 @@ public class DataProcessor {
     String[] thermalZoneTypesOfInterest = {"BIG", "MID", "LITTLE", "TPU", "G3D"};
     StringBuilder thermalZoneTypeHeaders;
     String[] cpuDevicePaths;
+    List<Long> initialFreqTimes = new ArrayList<>();
     Boolean isRooted;
     String rootAccess;
     long startTimeSecs;
@@ -116,6 +117,18 @@ public class DataProcessor {
                     cpuPathSplit.length - 2];
             cpuDevicesFreq.append(currCPUDeviceName).append("_freq,");
         }
+        String cpuLittleFreqHeaders, cpuMidFreqHeaders, cpuBigFreqHeaders = "";
+        try {
+            cpuLittleFreqHeaders = getCPUPolicyHeaders(
+                    "/sys/devices/system/cpu/cpufreq/policy0", "LITTLE");
+            cpuMidFreqHeaders = getCPUPolicyHeaders(
+                    "/sys/devices/system/cpu/cpufreq/policy4", "MID");
+            cpuBigFreqHeaders = getCPUPolicyHeaders(
+                    "/sys/devices/system/cpu/cpufreq/policy8", "BIG");
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
         // Create file for raw data collection
         String RAWFILEPATH = rawFilePath;
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(RAWFILEPATH, false))) {
@@ -130,6 +143,9 @@ public class DataProcessor {
                     gpuDeviceFreq +
                     cpuUtilization +
                     gpuUtilization +
+                    cpuLittleFreqHeaders +
+                    cpuMidFreqHeaders +
+                    cpuBigFreqHeaders +
                     '\n';
             writer.write(sb);
             System.out.println("Creating " + rawDataFileName + " done!");
@@ -162,6 +178,7 @@ public class DataProcessor {
         ArrayList<String> currentThermalData = processThermalData(false);
         ArrayList<Float> currentFrequencies = processFrequencyData();
         ArrayList<String> currentUtilizations = processUtilizationData();
+        ArrayList<Long> currentPolicyTimes = processPolicyData();
 
         StringBuilder allThermalDataOfInterest = new StringBuilder();
         for (int i = 0; i < currentThermalData.size(); i++) {
@@ -343,6 +360,36 @@ public class DataProcessor {
         return currentThermalData;
     }
 
+    private ArrayList<Long> processPolicyData() throws IOException {
+        /*
+        currentPolicyTimes = [cpuLittlePolicyTime, cpuMidPolicyTime, cpuBigPolicyTime]
+         */
+        String policyPath = "/sys/devices/system/cpu/cpufreq/";
+        String littlePath = policyPath + "policy0/stats/time_in_state";
+        String midPath = policyPath + "policy4/stats/time_in_state";
+        String bigPath = policyPath + "policy8/stats/time_in_state";
+        ArrayList<Long> littleFreqTimes = null, midFreqTimes = null, bigFreqTimes = null;
+        try {
+            littleFreqTimes = getPolicyTimes(littlePath);
+            midFreqTimes = getPolicyTimes(midPath);
+            bigFreqTimes = getPolicyTimes(bigPath);
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        ArrayList<Long> freqTimes = new ArrayList<>();
+        freqTimes.addAll(littleFreqTimes);
+        freqTimes.addAll(midFreqTimes);
+        freqTimes.addAll(bigFreqTimes);
+
+        ArrayList<Long> updatedTimes = new ArrayList<>();
+        for (int i = 0; i < freqTimes.size(); i++) {
+            updatedTimes.add(freqTimes.get(i) - initialFreqTimes.get(i));
+        }
+
+        return updatedTimes;
+    }
+
     private String[] getThermalZoneFilePaths(String thermalDir)
             throws IOException, InterruptedException {
         // thermalDir for Note10+ is usually "/sys/class/thermal"
@@ -411,6 +458,44 @@ public class DataProcessor {
         reader.close();
         process.waitFor();
         return cpuDevicePaths.toArray(new String[0]);
+    }
+
+    private String getCPUPolicyHeaders(String policyPath, String policyType) throws IOException, InterruptedException {
+        String cmd = String.format("%s cat %s/stats/time_in_state", rootAccess, policyPath);
+        Process process = Runtime.getRuntime().exec(cmd);
+        BufferedReader reader = new BufferedReader(new
+                InputStreamReader(process.getInputStream()));
+        String currLine;
+        StringBuilder cpuPolicyHeaders = new StringBuilder();
+        while ((currLine = reader.readLine()) != null) {
+            String[] currLineSplit = currLine.split(" ");
+            String currFreq = currLineSplit[0];
+            String currTime = currLineSplit[1];
+            initialFreqTimes.add(Long.parseLong(currTime));
+            cpuPolicyHeaders.append(currFreq).append(',');
+        }
+        cpuPolicyHeaders.append(policyType);
+        reader.close();
+        process.waitFor();
+        return cpuPolicyHeaders.toString();
+    }
+
+    private ArrayList<Long> getPolicyTimes(String policyPath) throws IOException, InterruptedException {
+        String cmd = String.format("%s cat %s", rootAccess, policyPath);
+        Process process = Runtime.getRuntime().exec(cmd);
+        BufferedReader reader = new BufferedReader(new
+                InputStreamReader(process.getInputStream()));
+        String currLine;
+        ArrayList<Long> cpuPolicyFreqs = new ArrayList<>();
+        while ((currLine = reader.readLine()) != null) {
+            String[] currLineSplit = currLine.split(" ");
+            String currTime = currLineSplit[1];
+            cpuPolicyFreqs.add(Long.parseLong(currTime));
+        }
+        cpuPolicyFreqs.add(-1L);
+        reader.close();
+        process.waitFor();
+        return cpuPolicyFreqs;
     }
 
     private Float getCPUFrequency(String cpuDevicePath) throws IOException {
@@ -488,4 +573,6 @@ public class DataProcessor {
                 Long.parseLong(timeStampSplit[2]);
         return currTimeSecs - startTimeSecs;
     }
+
+
 }

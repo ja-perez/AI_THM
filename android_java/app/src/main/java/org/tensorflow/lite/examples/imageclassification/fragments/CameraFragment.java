@@ -190,13 +190,15 @@ public class CameraFragment extends Fragment
                     ',' +
                     "throughput" +
                     ',' +
-                    "inferenceTime" +
+                    "avgThroughput" +
                     ',' +
                     "turnAroundTime" +
                     ',' +
                     "idleTime" +
                     ',' +
-                    "period" +
+                    "measuredPeriod" +
+                    ',' +
+                    "targetPeriod" +
                     '\n';
             writer.write(sb);
             System.out.println("Creating " + throughputFileName + " done!");
@@ -611,11 +613,12 @@ public class CameraFragment extends Fragment
         String FILEPATH = currentFolder + File.separator + throughputFileName + fileSeries + ".csv";
 
         for (ImageClassifierHelperKotlin currClassifier : imageClassifierHelpers) {
-            long throughput = currClassifier.calculateThroughput();
-            long inferenceTime = currClassifier.calcAvgInferenceTime();
+            long throughput = currClassifier.getCurrentThroughput();
+            long avgThroughput = currClassifier.calculateAverageThroughput();
             long turnAroundTime = currClassifier.calculateAvgTAT();
             long period = currClassifier.getTaskPeriod();
-            long idleTime = max(0, period - turnAroundTime);
+            long measuredPeriod = currClassifier.getMeasuredPeriod();
+            long idleTime = max(0, measuredPeriod - turnAroundTime);
 
             // Write throughput to file
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
@@ -634,11 +637,13 @@ public class CameraFragment extends Fragment
                         ',' +
                         throughput +
                         ',' +
-                        inferenceTime +
+                        avgThroughput +
                         ',' +
                         turnAroundTime +
                         ',' +
                         idleTime +
+                        ',' +
+                        measuredPeriod +
                         ',' +
                         period +
                         '\n';
@@ -657,7 +662,6 @@ public class CameraFragment extends Fragment
             Button toggleButton = (Button) fragmentCameraBinding.bottomSheetLayout.stateToggleButton;
             requireActivity().runOnUiThread(toggleButton::callOnClick);
         }
-
     }
 
     private String getRelativeTime(String currTime) {
