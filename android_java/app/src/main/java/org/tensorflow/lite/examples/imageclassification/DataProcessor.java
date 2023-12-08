@@ -30,7 +30,7 @@ public class DataProcessor {
     String[] thermalZoneTypesOfInterest = {"BIG", "MID", "LITTLE", "TPU", "G3D"};
     StringBuilder thermalZoneTypeHeaders;
     String[] cpuDevicePaths;
-    List<Long> initialFreqTimes = new ArrayList<>();
+    List<Float> initialFreqTimes;
     Boolean isRooted;
     String rootAccess;
     long startTimeSecs;
@@ -117,6 +117,8 @@ public class DataProcessor {
                     cpuPathSplit.length - 2];
             cpuDevicesFreq.append(currCPUDeviceName).append("_freq,");
         }
+
+        initialFreqTimes = new ArrayList<>();
         String cpuLittleFreqHeaders, cpuMidFreqHeaders, cpuBigFreqHeaders = "";
         try {
             cpuLittleFreqHeaders = getCPUPolicyHeaders(
@@ -178,7 +180,7 @@ public class DataProcessor {
         ArrayList<String> currentThermalData = processThermalData(false);
         ArrayList<Float> currentFrequencies = processFrequencyData();
         ArrayList<String> currentUtilizations = processUtilizationData();
-        ArrayList<Long> currentPolicyTimes = processPolicyData();
+        ArrayList<Float> currentPolicyTimes = processPolicyData();
 
         StringBuilder allThermalDataOfInterest = new StringBuilder();
         for (int i = 0; i < currentThermalData.size(); i++) {
@@ -220,7 +222,7 @@ public class DataProcessor {
         }
 
         StringBuilder formattedPolicyData = new StringBuilder();
-        for (Long policyData: currentPolicyTimes) {
+        for (Float policyData: currentPolicyTimes) {
             formattedPolicyData.append(policyData).append(',');
         }
         formattedPolicyData.deleteCharAt(formattedPolicyData.length() - 1);
@@ -368,7 +370,7 @@ public class DataProcessor {
         return currentThermalData;
     }
 
-    private ArrayList<Long> processPolicyData() {
+    private ArrayList<Float> processPolicyData() {
         /*
         currentPolicyTimes = [cpuLittlePolicyTime, cpuMidPolicyTime, cpuBigPolicyTime]
          */
@@ -376,7 +378,7 @@ public class DataProcessor {
         String littlePath = policyPath + "policy0/stats/time_in_state";
         String midPath = policyPath + "policy4/stats/time_in_state";
         String bigPath = policyPath + "policy8/stats/time_in_state";
-        ArrayList<Long> littleFreqTimes = null, midFreqTimes = null, bigFreqTimes = null;
+        ArrayList<Float> littleFreqTimes = null, midFreqTimes = null, bigFreqTimes = null;
         try {
             littleFreqTimes = getPolicyTimes(littlePath);
             midFreqTimes = getPolicyTimes(midPath);
@@ -385,18 +387,59 @@ public class DataProcessor {
             throw new RuntimeException(e);
         }
 
-        ArrayList<Long> freqTimes = new ArrayList<>();
+        ArrayList<Float> freqTimes = new ArrayList<>();
         freqTimes.addAll(littleFreqTimes);
         freqTimes.addAll(midFreqTimes);
         freqTimes.addAll(bigFreqTimes);
 
-        ArrayList<Long> updatedTimes = new ArrayList<>();
+        ArrayList<Float> updatedTimes = new ArrayList<>();
         for (int i = 0; i < freqTimes.size(); i++) {
-            if (freqTimes.get(i) == -1) updatedTimes.add(freqTimes.get(i));
             updatedTimes.add(freqTimes.get(i) - initialFreqTimes.get(i));
         }
 
         return updatedTimes;
+    }
+
+    private String getCPUPolicyHeaders(String policyPath, String policyType) throws IOException, InterruptedException {
+        String cmd = String.format("%s cat %s/stats/time_in_state", rootAccess, policyPath);
+        Process process = Runtime.getRuntime().exec(cmd);
+        BufferedReader reader = new BufferedReader(new
+                InputStreamReader(process.getInputStream()));
+        String currLine;
+        StringBuilder cpuPolicyHeaders = new StringBuilder();
+        while ((currLine = reader.readLine()) != null) {
+            String[] currLineSplit = currLine.split(" ");
+            String currFreq = currLineSplit[0];
+            Float currFreqHz = Float.parseFloat(currFreq) / 1000000f;
+            String currTime = currLineSplit[1];
+            Float initialTimeSecs = Float.parseFloat(currTime) / 1000f;
+            initialFreqTimes.add(initialTimeSecs);
+            cpuPolicyHeaders.append(currFreqHz).append(',');
+        }
+        initialFreqTimes.add(-1f);
+        cpuPolicyHeaders.append(policyType).append(',');
+        reader.close();
+        process.waitFor();
+        return cpuPolicyHeaders.toString();
+    }
+
+    private ArrayList<Float> getPolicyTimes(String policyPath) throws IOException, InterruptedException {
+        String cmd = String.format("%s cat %s", rootAccess, policyPath);
+        Process process = Runtime.getRuntime().exec(cmd);
+        BufferedReader reader = new BufferedReader(new
+                InputStreamReader(process.getInputStream()));
+        String currLine;
+        ArrayList<Float> cpuPolicyFreqs = new ArrayList<>();
+        while ((currLine = reader.readLine()) != null) {
+            String[] currLineSplit = currLine.split(" ");
+            String currTime = currLineSplit[1];
+            Float currTimeSeconds = Float.parseFloat(currTime) / 1000f;
+            cpuPolicyFreqs.add(currTimeSeconds);
+        }
+        cpuPolicyFreqs.add(-1f);
+        reader.close();
+        process.waitFor();
+        return cpuPolicyFreqs;
     }
 
     private String[] getThermalZoneFilePaths(String thermalDir)
@@ -467,45 +510,6 @@ public class DataProcessor {
         reader.close();
         process.waitFor();
         return cpuDevicePaths.toArray(new String[0]);
-    }
-
-    private String getCPUPolicyHeaders(String policyPath, String policyType) throws IOException, InterruptedException {
-        String cmd = String.format("%s cat %s/stats/time_in_state", rootAccess, policyPath);
-        Process process = Runtime.getRuntime().exec(cmd);
-        BufferedReader reader = new BufferedReader(new
-                InputStreamReader(process.getInputStream()));
-        String currLine;
-        StringBuilder cpuPolicyHeaders = new StringBuilder();
-        while ((currLine = reader.readLine()) != null) {
-            String[] currLineSplit = currLine.split(" ");
-            String currFreq = currLineSplit[0];
-            String currTime = currLineSplit[1];
-            initialFreqTimes.add(Long.parseLong(currTime));
-            cpuPolicyHeaders.append(currFreq).append(',');
-        }
-        initialFreqTimes.add(-1L);
-        cpuPolicyHeaders.append(policyType).append(',');
-        reader.close();
-        process.waitFor();
-        return cpuPolicyHeaders.toString();
-    }
-
-    private ArrayList<Long> getPolicyTimes(String policyPath) throws IOException, InterruptedException {
-        String cmd = String.format("%s cat %s", rootAccess, policyPath);
-        Process process = Runtime.getRuntime().exec(cmd);
-        BufferedReader reader = new BufferedReader(new
-                InputStreamReader(process.getInputStream()));
-        String currLine;
-        ArrayList<Long> cpuPolicyFreqs = new ArrayList<>();
-        while ((currLine = reader.readLine()) != null) {
-            String[] currLineSplit = currLine.split(" ");
-            String currTime = currLineSplit[1];
-            cpuPolicyFreqs.add(Long.parseLong(currTime));
-        }
-        cpuPolicyFreqs.add(-1L);
-        reader.close();
-        process.waitFor();
-        return cpuPolicyFreqs;
     }
 
     private Float getCPUFrequency(String cpuDevicePath) throws IOException {
