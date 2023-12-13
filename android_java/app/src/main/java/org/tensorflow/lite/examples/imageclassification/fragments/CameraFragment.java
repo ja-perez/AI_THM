@@ -575,11 +575,11 @@ public class CameraFragment extends Fragment
 
             classifier1.setCurrentDelegate(2);
             classifier1.setCurrentModel(1);
-            classifier1.setCurrentPeriod(10);
+            classifier1.setCurrentPeriod(8);
 
             classifier2.setCurrentDelegate(2);
             classifier2.setCurrentModel(2);
-            classifier2.setCurrentPeriod(10);
+            classifier2.setCurrentPeriod(8);
 
 //            classifier3.setCurrentDelegate(imageClassifierHelper.getCurrentDelegateNum());
 //            classifier3.setCurrentModel(0);
@@ -631,7 +631,7 @@ public class CameraFragment extends Fragment
             long period = currClassifier.getTaskPeriod();
             long averageMeasuredPeriod = currClassifier.getAvgMeasuredPeriod();
             long measuredPeriod = currClassifier.getMeasuredPeriod();
-            long idleTime = max(0, measuredPeriod - turnAroundTime);
+            long idleTime = max(0, period - turnAroundTime);
 
             // Write throughput to file
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(FILEPATH, true))) {
